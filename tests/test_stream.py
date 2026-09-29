@@ -50,7 +50,7 @@ def test_fixed_mode_default_tau(rng):
 
 
 def test_fixed_mode_trailing_reference_needs_seed_block():
-    g = StreamGuard(tau=0.5)
+    g = StreamGuard(tau=0.5, reference="median")
     d0 = g.process(np.full(32, 10.0))
     assert d0.reason is Reason.NO_REFERENCE and not d0.admit
     d1 = g.process(np.full(32, 10.1))  # residual 0.1 vs trailing median 10
@@ -161,7 +161,7 @@ def test_streaming_memory_is_constant(rng):
     for name in StreamGuard.__slots__:
         assert not isinstance(getattr(g, name), (list, dict, set, tuple)), name
     assert not hasattr(g, "__dict__")
-    ref_size = g._ref_buf.size
+    ref_state = g._ref.last
     tracemalloc.start()
     for b in data[500:5000]:
         g.process(b)
@@ -172,7 +172,7 @@ def test_streaming_memory_is_constant(rng):
     tracemalloc.stop()
     assert end - mid < 4096, (mid, end)  # 15k more blocks, no growth
     assert peak < 1_000_000
-    assert g._ref_buf.size == ref_size and g._wu_buf is None
+    assert isinstance(ref_state, float) and g._wu_buf is None
 
 
 def test_warmup_buffer_released(rng):
@@ -183,7 +183,7 @@ def test_warmup_buffer_released(rng):
 
 
 def test_trailing_reference_ring_buffer_wraps():
-    g = StreamGuard(tau=10.0, ref_blocks=2)
+    g = StreamGuard(tau=10.0, reference="median", ref_blocks=2)
     for v in (1.0, 2.0, 3.0, 4.0):
         g.process(np.full(32, v))
     # window holds the last two blocks (3 and 4) -> median 3.5
@@ -198,7 +198,8 @@ def test_trailing_reference_ring_buffer_wraps():
         ({"tau": float("nan")}, ValueError),
         ({"warmup_blocks": 2}, ValueError),
         ({"warmup_blocks": 8.0}, TypeError),
-        ({"ref_blocks": 0}, ValueError),
+        ({"reference": "median", "ref_blocks": 0}, ValueError),
+        ({"reference": "ewma", "ewma_alpha": 0.0}, ValueError),
         ({"scale": 0.0}, ValueError),
         ({"reference": "mean"}, ValueError),
         ({"reference": np.zeros(3)}, ValueError),
@@ -259,6 +260,6 @@ def test_audit_log_to_stream_and_path(rng, tmp_path):
 
 def test_config_fixed_vector_reference():
     cfg = StreamGuard(tau=0.5, reference=np.zeros(32)).config()
-    assert cfg["mode"] == "fixed" and cfg["tau"] == 0.5 and cfg["ref_window"] is None
-    assert cfg["reference"] == [0.0] * 32
+    assert cfg["mode"] == "fixed" and cfg["tau"] == 0.5 and "ref_window" not in cfg
+    assert cfg["reference"] == "fixed" and cfg["reference_value"] == [0.0] * 32
     json.dumps(cfg, allow_nan=False)

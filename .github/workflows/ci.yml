@@ -35,4 +35,6 @@ jobs:
       - name: Run tests with coverage
         run: python -m pytest -v --cov --cov-report=term-missing
       - name: SYNTHETIC demo smoke run
-        run: python examples/synthetic_demo.py
+        run: |
+          python examples/synthetic_demo.py
+          python benchmarks/synthetic_reference_eval.py

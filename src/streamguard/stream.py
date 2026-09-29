@@ -1,21 +1,23 @@
 """StreamGuard: per-stream state machine with O(1) memory, plus a JSONL audit log writer.
 
-Per stream, the guard keeps only fixed-size numpy buffers allocated in ``__init__``:
+Per stream, the guard keeps only fixed-size state allocated in ``__init__``:
 
-* a ring buffer of the last ``ref_blocks * 32`` valid samples for the trailing-median
-  reference (the causal reference used by the oes512q-latch benchmark), and
+* the reference model (:mod:`streamguard.reference`): one float for ``diff`` (default) and
+  ``ewma``, nothing for ``detrend``, a ``ref_blocks * 32`` ring buffer for ``median``, and
 * a ``(warmup_blocks, 32)`` warm-up buffer, released after calibration succeeds.
 
 Nothing grows with the length of the stream, so the guard can run indefinitely.
 
 Lifecycle of one stream in calibrated mode (the default):
 
-1. The first valid block only seeds the trailing reference -> latched, ``NO_REFERENCE``
-   (also in fixed-tau mode; not applicable with a fixed scalar/vector reference).
+1. For ``diff``, ``median`` and ``ewma`` the first valid block only seeds the reference ->
+   latched, ``NO_REFERENCE`` (also in fixed-tau mode). ``detrend`` and a fixed scalar/vector
+   reference skip this step.
 2. The next ``warmup_blocks`` valid blocks fill the warm-up buffer -> latched,
    ``NOT_CALIBRATED``. When it is full, tau and the scale are calibrated (``event =
    "CALIBRATED"``); if calibration fails the buffer is cleared and warm-up restarts
    (``CALIBRATION_FAILED``). Fail-closed: nothing is admitted before a tau exists.
+   Warm-up residuals use the same reference mode as scoring.
 3. After that, every valid block is scored and admitted iff ``S < tau``.
 
 Invalid blocks (NaN, inf, wrong shape, non-numeric) always latch with their reason code and
@@ -43,6 +45,7 @@ from streamguard.calibrate import (
     validate_quantile,
 )
 from streamguard.latch import Reason, check_block, decide, tau_is_valid
+from streamguard.reference import DEFAULT_REFERENCE, make_reference
 from streamguard.score import BLOCK, score_components
 
 SCHEMA_VERSION = 1
@@ -110,10 +113,13 @@ class StreamGuard:
         ``None``: robust warm-up scale in calibrated mode, ``1.0`` in fixed mode.
         A positive real: use it as the residual divisor in both modes.
     reference:
-        ``"trailing_median"`` (median of the last ``ref_blocks * 32`` valid samples), a scalar,
-        or a 32-vector.
+        ``"diff"`` (default, first difference), ``"detrend"`` (in-block line fit), ``"ewma"``
+        (level tracking), ``"median"`` (trailing median, alias ``"trailing_median"``; the
+        0.1.0.dev0 default), a scalar, or a 32-vector. See :mod:`streamguard.reference`.
     ref_blocks:
-        Size of the trailing-median window, in blocks.
+        Size of the trailing-median window, in blocks (``median`` only).
+    ewma_alpha:
+        Per-sample smoothing factor in (0, 1] (``ewma`` only).
     drift:
         Optional :class:`DriftConfig` for a bounded slow tau update after calibration.
     audit:
@@ -125,10 +131,7 @@ class StreamGuard:
         "_drift",
         "_index",
         "_quantile",
-        "_ref_buf",
-        "_ref_count",
-        "_ref_fixed",
-        "_ref_pos",
+        "_ref",
         "_scale",
         "_scale_fixed",
         "_tau",
@@ -147,8 +150,9 @@ class StreamGuard:
         warmup_blocks: int = 32,
         quantile: float = DEFAULT_QUANTILE,
         scale: float | None = None,
-        reference: str | float | ArrayLike = "trailing_median",
+        reference: str | float | ArrayLike = DEFAULT_REFERENCE,
         ref_blocks: int = 4,
+        ewma_alpha: float = 0.05,
         drift: DriftConfig | None = None,
         audit: AuditLogWriter | None = None,
     ) -> None:
@@ -158,8 +162,6 @@ class StreamGuard:
             raise TypeError("warmup_blocks must be an int")
         if warmup_blocks < MIN_WARMUP_BLOCKS:
             raise ValueError(f"warmup_blocks must be >= {MIN_WARMUP_BLOCKS}")
-        if isinstance(ref_blocks, bool) or not isinstance(ref_blocks, int) or ref_blocks < 1:
-            raise ValueError("ref_blocks must be an int >= 1")
         if scale is not None:
             scale = float(scale)
             if not math.isfinite(scale) or scale <= 0:
@@ -173,19 +175,7 @@ class StreamGuard:
         self._index = 0
         self.calibration = None
 
-        if isinstance(reference, str):
-            if reference != "trailing_median":
-                raise ValueError(f"unknown reference {reference!r}")
-            self._ref_fixed = None
-            self._ref_buf = np.empty(ref_blocks * BLOCK, dtype=np.float64)
-        else:
-            ref = np.asarray(reference, dtype=np.float64)
-            if ref.shape not in ((), (BLOCK,)) or not np.all(np.isfinite(ref)):
-                raise ValueError(f"reference must be finite, scalar or shape ({BLOCK},)")
-            self._ref_fixed = ref.copy()
-            self._ref_buf = None
-        self._ref_count = 0
-        self._ref_pos = 0
+        self._ref = make_reference(reference, ref_blocks, ewma_alpha)
 
         if tau is None:
             self.mode = "calibrated"
@@ -228,29 +218,14 @@ class StreamGuard:
             "warmup_blocks": self._warmup_blocks if self.mode == "calibrated" else None,
             "quantile": self._quantile,
             "scale": self._scale_fixed,
-            "reference": "trailing_median" if self._ref_fixed is None else self._ref_fixed.tolist(),
-            "ref_window": None if self._ref_buf is None else int(self._ref_buf.size),
+            "reference": self._ref.name,
+            **self._ref.config(),
             "drift_rate": self._drift.rate,
             "drift_max_rel": self._drift.max_rel,
             "block": BLOCK,
         }
 
     # ------------------------------------------------------------------ internals
-    def _reference(self) -> np.ndarray | None:
-        if self._ref_fixed is not None:
-            return self._ref_fixed
-        if self._ref_count == 0:
-            return None
-        return np.asarray(np.median(self._ref_buf[: self._ref_count]))
-
-    def _push_reference(self, arr: np.ndarray) -> None:
-        buf = self._ref_buf
-        if buf is None:
-            return
-        buf[self._ref_pos : self._ref_pos + BLOCK] = arr
-        self._ref_pos = (self._ref_pos + BLOCK) % buf.size
-        self._ref_count = min(self._ref_count + BLOCK, buf.size)
-
     def _emit(self, d: Decision) -> Decision:
         if self._audit is not None:
             self._audit.write(d)
@@ -267,21 +242,21 @@ class StreamGuard:
         if arr is None:
             return self._emit(Decision(i, False, None, tau, reason))
 
-        ref = self._reference()
+        ref = self._ref.ref(arr)
         if ref is None:  # first valid block only seeds the trailing reference
-            self._push_reference(arr)
+            self._ref.push(arr)
             return self._emit(Decision(i, False, None, tau, Reason.NO_REFERENCE))
 
         with np.errstate(over="ignore", invalid="ignore"):
             raw = arr - ref
         if not np.all(np.isfinite(raw)):
-            self._push_reference(arr)
+            self._ref.push(arr)
             return self._emit(Decision(i, False, None, tau, Reason.NONFINITE_SCORE))
 
         if tau is None:  # warm-up (calibrated mode)
             self._wu_buf[self._wu_n] = raw
             self._wu_n += 1
-            self._push_reference(arr)
+            self._ref.push(arr)
             if self._wu_n < self._warmup_blocks:
                 return self._emit(Decision(i, False, None, None, Reason.NOT_CALIBRATED))
             scale_arg: str | float = "robust" if self._scale_fixed is None else self._scale_fixed
@@ -317,7 +292,7 @@ class StreamGuard:
 
         with np.errstate(over="ignore", invalid="ignore"):
             r = raw / self._scale
-        self._push_reference(arr)
+        self._ref.push(arr)
         if not np.all(np.isfinite(r)):
             return self._emit(Decision(i, False, None, tau, Reason.NONFINITE_SCORE))
         bs = score_components(r)

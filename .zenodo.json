@@ -1,0 +1,41 @@
+{
+  "upload_type": "software",
+  "title": "Spark StreamGuard: a streaming, fail-closed guardrail for numeric data in 32-value blocks",
+  "description": "<p>Python research prototype (numpy only). Each 32-value block is scored against a reference with S = 0.45·Peak + 0.35·RMS + 0.20·MeanAbs over the scaled residual and latched when S ≥ τ. Invalid input (NaN, inf, wrong shape, non-numeric) always latches with a reason code (fail-closed). τ is self-calibrated from a warm-up window with an optional bounded drift rule; the fixed τ = 0.50 remains available. Constant memory per stream and a JSONL audit log of every decision. The scorer and calibrator are ported from oes512q-latch.</p><p><strong>Evidence tags.</strong> Demo outputs and unit tests: <strong>SYNTHETIC</strong>. No benchmarks have been run yet; all performance figures are <strong>TARGET</strong> or <strong>UNRUN</strong>.</p><p><strong>Scope and limits.</strong> Research prototype. Not a certified safety system and not a product. No quantum claims.</p>",
+  "creators": [
+    {
+      "name": "Brisson, Jean-François",
+      "affiliation": "Spark AI NLP"
+    }
+  ],
+  "access_right": "open",
+  "license": "MIT",
+  "keywords": [
+    "anomaly detection",
+    "streaming",
+    "fail-closed",
+    "guardrail",
+    "audit log",
+    "self-calibrated threshold",
+    "Python",
+    "research software"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/sparkainlp-x/spark-streamguard",
+      "relation": "isSupplementTo",
+      "resource_type": "software"
+    },
+    {
+      "identifier": "10.5281/zenodo.22998570",
+      "relation": "isDerivedFrom",
+      "resource_type": "software"
+    }
+  ],
+  "language": "eng",
+  "communities": [
+    {
+      "identifier": "spark-ai-nlp"
+    }
+  ]
+}

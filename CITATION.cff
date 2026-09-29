@@ -1,0 +1,35 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below. Demo outputs are SYNTHETIC; no benchmarks have been run yet (all performance figures are TARGET or UNRUN)."
+title: "Spark StreamGuard: a streaming, fail-closed guardrail for numeric data in 32-value blocks"
+type: software
+authors:
+  - family-names: "Brisson"
+    given-names: "Jean-François"
+    affiliation: "Spark AI NLP"
+repository-code: "https://github.com/sparkainlp-x/spark-streamguard"
+license: MIT
+version: "0.1.0.dev0"
+abstract: >-
+  Python research prototype (numpy only). Each 32-value block is scored against a
+  reference with S = 0.45·Peak + 0.35·RMS + 0.20·MeanAbs over the scaled residual
+  and latched when S ≥ τ. Invalid input (NaN, inf, wrong shape, non-numeric)
+  always latches with a reason code (fail-closed). τ is self-calibrated from a
+  warm-up window (0.99 quantile of warm-up scores on robust-scaled residuals),
+  with an optional bounded drift rule; the fixed τ = 0.50 remains available.
+  Constant memory per stream and a JSONL audit log of every decision. Scorer and
+  calibrator ported from oes512q-latch. No benchmarks run yet.
+keywords:
+  - anomaly detection
+  - streaming
+  - fail-closed
+  - guardrail
+  - audit log
+  - self-calibrated threshold
+references:
+  - type: software
+    title: "oes512q-latch: OES-32 / OES-512 classical residual latch with a self-calibrated threshold"
+    authors:
+      - family-names: "Brisson"
+        given-names: "Jean-François"
+    repository-code: "https://github.com/sparkainlp-x/oes512q-latch"
+    doi: "10.5281/zenodo.22998570"

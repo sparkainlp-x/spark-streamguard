@@ -11,12 +11,15 @@ causal at block granularity: ``x_ref`` for a block depends only on earlier valid
              ``level <- level + alpha * (x_j - level)`` per sample. Constant across the block.
 ``detrend``  least-squares line fitted to the block itself; ``x_ref_j`` is the fitted value.
              Needs no history. A whole-block offset or a purely linear block scores 0.
-``diff``     first difference: ``x_ref = [last sample of the previous valid block,
-             x_0, ..., x_30]``, so ``r_j = x_j - x_{j-1}``.
+``diff``     first difference: ``x_ref = [last sample of the previous block, x_0, ..., x_30]``,
+             so ``r_j = x_j - x_{j-1}``. Reset by an invalid block (see ``on_invalid``).
 fixed        a scalar or 32-vector given by the caller.
 
 ``ref(x)`` returns the reference or ``None`` if the model has no history yet (the guard then
 latches with ``NO_REFERENCE``). ``push(x)`` updates the state with a valid block.
+``on_invalid()`` is called when a block fails validation; only ``diff`` reacts (it forgets its
+last sample, so the block after a gap latches with ``NO_REFERENCE`` rather than scoring a
+difference across the gap).
 """
 
 from __future__ import annotations
@@ -53,6 +56,9 @@ class MedianRef:
         self.pos = (self.pos + BLOCK) % self.buf.size
         self.count = min(self.count + BLOCK, self.buf.size)
 
+    def on_invalid(self) -> None:
+        pass
+
     def config(self) -> dict:
         return {"ref_window": int(self.buf.size)}
 
@@ -77,6 +83,9 @@ class EwmaRef:
         else:
             self.level = float(self.decay * self.level + self.weights @ x)
 
+    def on_invalid(self) -> None:
+        pass
+
     def config(self) -> dict:
         return {"ewma_alpha": self.alpha}
 
@@ -91,6 +100,9 @@ class DetrendRef:
             return x.mean() + slope * _T
 
     def push(self, x: np.ndarray) -> None:
+        pass
+
+    def on_invalid(self) -> None:
         pass
 
     def config(self) -> dict:
@@ -115,6 +127,11 @@ class DiffRef:
     def push(self, x: np.ndarray) -> None:
         self.last = float(x[-1])
 
+    def on_invalid(self) -> None:
+        # The previous sample is no longer adjacent to the next block: forget it, so the next
+        # valid block reports NO_REFERENCE instead of a difference that spans the gap.
+        self.last = None
+
     def config(self) -> dict:
         return {}
 
@@ -133,6 +150,9 @@ class FixedRef:
         return self.value
 
     def push(self, x: np.ndarray) -> None:
+        pass
+
+    def on_invalid(self) -> None:
         pass
 
     def config(self) -> dict:

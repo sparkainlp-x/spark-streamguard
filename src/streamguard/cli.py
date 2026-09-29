@@ -22,10 +22,10 @@ from collections.abc import Iterable, Iterator
 from typing import IO
 
 from streamguard import __version__
-from streamguard.calibrate import DEFAULT_QUANTILE, DriftConfig
+from streamguard.calibrate import DriftConfig
 from streamguard.reference import DEFAULT_REFERENCE, MODES
 from streamguard.score import BLOCK
-from streamguard.stream import AuditLogWriter, StreamGuard
+from streamguard.stream import STREAM_QUANTILE, STREAM_WARMUP_BLOCKS, AuditLogWriter, StreamGuard
 
 
 def _parse_token(tok: str) -> float | None:
@@ -99,12 +99,17 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="fixed threshold (e.g. 0.5); default: self-calibrate from warm-up",
     )
-    p.add_argument("--warmup", type=int, default=32, help="warm-up blocks (default 32)")
+    p.add_argument(
+        "--warmup",
+        type=int,
+        default=STREAM_WARMUP_BLOCKS,
+        help=f"warm-up blocks (default {STREAM_WARMUP_BLOCKS})",
+    )
     p.add_argument(
         "--quantile",
         type=float,
-        default=DEFAULT_QUANTILE,
-        help="warm-up score quantile used as tau (default 0.99)",
+        default=STREAM_QUANTILE,
+        help=f"warm-up score quantile used as tau (default {STREAM_QUANTILE})",
     )
     p.add_argument(
         "--scale",

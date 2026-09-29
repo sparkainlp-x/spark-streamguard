@@ -24,7 +24,13 @@ from streamguard.score import (
     residual,
     score_components,
 )
-from streamguard.stream import AuditLogWriter, Decision, StreamGuard
+from streamguard.stream import (
+    STREAM_QUANTILE,
+    STREAM_WARMUP_BLOCKS,
+    AuditLogWriter,
+    Decision,
+    StreamGuard,
+)
 
 __version__ = "0.1.0.dev0"
 
@@ -35,6 +41,8 @@ __all__ = [
     "W_MEAN_ABS",
     "W_PEAK",
     "W_RMS",
+    "STREAM_QUANTILE",
+    "STREAM_WARMUP_BLOCKS",
     "AuditLogWriter",
     "BlockScore",
     "CalibrationError",

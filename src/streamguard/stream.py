@@ -21,7 +21,8 @@ Lifecycle of one stream in calibrated mode (the default):
 3. After that, every valid block is scored and admitted iff ``S < tau``.
 
 Invalid blocks (NaN, inf, wrong shape, non-numeric) always latch with their reason code and
-never touch the reference, warm-up buffer or drift state.
+never touch the warm-up buffer or drift state. They do not update the reference either; the
+``diff`` reference is reset by them, so the next valid block latches with ``NO_REFERENCE``.
 """
 
 from __future__ import annotations
@@ -36,7 +37,6 @@ import numpy as np
 from numpy.typing import ArrayLike
 
 from streamguard.calibrate import (
-    DEFAULT_QUANTILE,
     MIN_WARMUP_BLOCKS,
     CalibrationError,
     DriftConfig,
@@ -49,6 +49,12 @@ from streamguard.reference import DEFAULT_REFERENCE, make_reference
 from streamguard.score import BLOCK, score_components
 
 SCHEMA_VERSION = 1
+
+# Stream defaults chosen by the SYNTHETIC warm-up x quantile sweep (benchmarks/warmup_sweep.py):
+# rule 2 (no setting reached a 1% false-latch rate; lowest rate with recall >= 90%).
+# calibrate_tau() keeps quantile 0.99 as its own default (parity with oes512q-latch).
+STREAM_WARMUP_BLOCKS = 64
+STREAM_QUANTILE = 0.999
 
 
 @dataclass(frozen=True)
@@ -107,8 +113,10 @@ class StreamGuard:
         original contract's ``0.50``.
     warmup_blocks:
         Number of scored warm-up blocks used for calibration (calibrated mode only).
+        Default 64 (SYNTHETIC sweep, see README).
     quantile:
-        Quantile of warm-up scores used as tau.
+        Quantile of warm-up scores used as tau. Default 0.999; with 64 warm-up blocks this is
+        close to the largest warm-up score.
     scale:
         ``None``: robust warm-up scale in calibrated mode, ``1.0`` in fixed mode.
         A positive real: use it as the residual divisor in both modes.
@@ -147,8 +155,8 @@ class StreamGuard:
         self,
         tau: float | None = None,
         *,
-        warmup_blocks: int = 32,
-        quantile: float = DEFAULT_QUANTILE,
+        warmup_blocks: int = STREAM_WARMUP_BLOCKS,
+        quantile: float = STREAM_QUANTILE,
         scale: float | None = None,
         reference: str | float | ArrayLike = DEFAULT_REFERENCE,
         ref_blocks: int = 4,
@@ -240,6 +248,7 @@ class StreamGuard:
 
         arr, reason = check_block(block)
         if arr is None:
+            self._ref.on_invalid()
             return self._emit(Decision(i, False, None, tau, reason))
 
         ref = self._ref.ref(arr)

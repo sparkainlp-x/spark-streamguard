@@ -38,3 +38,4 @@ jobs:
         run: |
           python examples/synthetic_demo.py
           python benchmarks/synthetic_reference_eval.py
+          python benchmarks/warmup_sweep.py

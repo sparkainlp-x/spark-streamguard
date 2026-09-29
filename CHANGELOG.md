@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased: warm-up and quantile defaults
+
+- `StreamGuard` / CLI defaults changed to `warmup_blocks = 64` (was 32) and `quantile = 0.999`
+  (was 0.99), chosen by a SYNTHETIC sweep (`benchmarks/warmup_sweep.py`). The sweep covered
+  W in {16, 24, 32, 48, 64} and q in {0.99, 0.995, 0.999} for `diff`. Every setting is scored
+  on the same post-warm-up blocks with the same spikes, the selection rule was fixed in
+  advance, and the result was checked on 40 held-out series. No setting met the 1% false-latch
+  TARGET (rule 2 applied). Held-out: recall 237/240, false latches 65/3750 (1.73%), against
+  203/3750 (5.41%) for W=16, q=0.99. SYNTHETIC only.
+- `calibrate_tau()` keeps its own default quantile of 0.99 (oes512q-latch parity). New
+  constants `STREAM_WARMUP_BLOCKS`, `STREAM_QUANTILE`.
+- `diff` reference is reset by an invalid block: the next valid block latches with
+  `NO_REFERENCE` instead of scoring a difference across the gap (was a false `SCORE_OVER_TAU` in
+  the demo). Reference models gained `on_invalid()`.
+- `benchmarks/synthetic_reference_eval.py` pins quantile 0.99 so its historical comparison
+  stays reproducible.
+
 ## Unreleased: trend-following reference modes
 
 - New `streamguard.reference` module with O(1)-state reference models: `diff` (first

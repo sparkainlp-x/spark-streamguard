@@ -5,7 +5,7 @@ import tracemalloc
 import numpy as np
 import pytest
 
-from streamguard import Reason, StreamGuard, calibrate_tau
+from streamguard import STREAM_QUANTILE, Reason, StreamGuard, calibrate_tau
 from streamguard.reference import (
     DEFAULT_REFERENCE,
     MODES,
@@ -128,7 +128,7 @@ def test_calibration_uses_same_reference_mode(rng, mode):
             residuals.append(b - ref)
         shadow.push(b)
     residuals = residuals[:8]
-    assert g.calibration == calibrate_tau(np.array(residuals))
+    assert g.calibration == calibrate_tau(np.array(residuals), quantile=STREAM_QUANTILE)
 
 
 def test_detrend_needs_no_seed_block(rng):
@@ -192,9 +192,38 @@ def test_constant_memory_per_mode(rng, mode):
         assert not isinstance(getattr(g._ref, name), (list, dict, set, tuple))
 
 
-def test_diff_ignores_invalid_blocks_for_last_sample():
+def test_diff_resets_after_invalid_block():
     g = StreamGuard(tau=100.0, reference="diff")
     g.process(np.full(32, 5.0))
-    g.process([NAN] * 32)  # must not become the "previous sample"
+    assert g.process(np.full(32, 5.0)).admit
+    assert g.process([NAN] * 32).reason is Reason.NAN_INPUT
+    d = g.process(np.full(32, 50.0))  # no difference across the gap
+    assert d.reason is Reason.NO_REFERENCE and not d.admit and d.score is None
+    d = g.process(np.full(32, 50.0))
+    assert d.admit and d.score == 0.0
+
+
+def test_diff_reset_during_warmup_does_not_count_block(rng):
+    g = StreamGuard(warmup_blocks=4, reference="diff")
+    g.process(rng.normal(size=32))  # seed
+    g.process(rng.normal(size=32))  # warm-up 1
+    g.process([NAN] * 32)
+    assert g.process(rng.normal(size=32)).reason is Reason.NO_REFERENCE
+    ds = [g.process(b) for b in rng.normal(size=(2, 32))]  # warm-up 2 and 3
+    assert not g.calibrated and ds[-1].reason is Reason.NOT_CALIBRATED
+    assert g.process(rng.normal(size=32)).event == "CALIBRATED"
+
+
+@pytest.mark.parametrize("mode", ["median", "ewma", "detrend"])
+def test_other_modes_keep_state_after_invalid_block(mode):
+    g = StreamGuard(tau=100.0, reference=mode)
+    g.process(np.full(32, 5.0))
+    g.process([NAN] * 32)
     d = g.process(np.full(32, 5.0))
-    assert d.score == 0.0 and d.admit
+    assert d.reason is Reason.OK and d.score == pytest.approx(0.0)
+
+
+def test_fixed_reference_on_invalid_is_noop():
+    f = FixedRef(1.0)
+    f.on_invalid()
+    assert float(f.value) == 1.0

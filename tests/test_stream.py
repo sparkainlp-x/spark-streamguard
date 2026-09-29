@@ -92,7 +92,9 @@ def test_invalid_blocks_do_not_count_toward_warmup(rng):
     for _ in range(10):
         g.process([NAN] * 32)
     assert not g.calibrated
-    warm(g, rng, 4)
+    warm(g, rng, 4)  # first block after the gap re-seeds the diff reference
+    assert not g.calibrated
+    warm(g, rng, 1)
     assert g.calibrated
 
 
@@ -263,3 +265,9 @@ def test_config_fixed_vector_reference():
     assert cfg["mode"] == "fixed" and cfg["tau"] == 0.5 and "ref_window" not in cfg
     assert cfg["reference"] == "fixed" and cfg["reference_value"] == [0.0] * 32
     json.dumps(cfg, allow_nan=False)
+
+
+def test_stream_defaults():
+    g = StreamGuard()
+    cfg = g.config()
+    assert cfg["warmup_blocks"] == 64 and cfg["quantile"] == 0.999 and cfg["reference"] == "diff"

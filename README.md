@@ -29,13 +29,13 @@ from streamguard import StreamGuard, AuditLogWriter
 
 rng = np.random.default_rng(42)
 with AuditLogWriter("audit.jsonl") as log:
-    guard = StreamGuard(warmup_blocks=32, audit=log)   # self-calibrated tau (default)
+    guard = StreamGuard(warmup_blocks=32, audit=log)  # self-calibrated tau (default)
     for block in rng.normal(size=(100, 32)):
-        d = guard.process(block)        # Decision(index, admit, score, tau, reason, ...)
+        d = guard.process(block)  # Decision(index, admit, score, tau, reason, ...)
         if not d.admit:
             print(d.index, d.reason.value, d.score)
 
-fixed = StreamGuard(tau=0.50)           # original fixed threshold, still available
+fixed = StreamGuard(tau=0.50)  # original fixed threshold, still available
 ```
 
 Command line (reads a CSV file or stdin, writes JSONL to stdout, a summary to stderr):

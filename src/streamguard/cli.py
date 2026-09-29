@@ -23,6 +23,7 @@ from typing import IO
 
 from streamguard import __version__
 from streamguard.calibrate import DEFAULT_QUANTILE, DriftConfig
+from streamguard.reference import DEFAULT_REFERENCE, MODES
 from streamguard.score import BLOCK
 from streamguard.stream import AuditLogWriter, StreamGuard
 
@@ -112,6 +113,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="fixed residual scale (default: robust warm-up scale, or 1.0 with --tau)",
     )
     p.add_argument(
+        "--reference",
+        choices=MODES,
+        default=DEFAULT_REFERENCE,
+        help=f"reference mode (default {DEFAULT_REFERENCE}); see README",
+    )
+    p.add_argument(
+        "--ewma-alpha",
+        type=float,
+        default=0.05,
+        help="smoothing factor for --reference ewma (default 0.05)",
+    )
+    p.add_argument(
         "--ref-blocks",
         type=int,
         default=4,
@@ -151,7 +164,9 @@ def run(
             warmup_blocks=args.warmup,
             quantile=args.quantile,
             scale=args.scale,
+            reference=args.reference,
             ref_blocks=args.ref_blocks,
+            ewma_alpha=args.ewma_alpha,
             drift=DriftConfig(rate=args.drift_rate, max_rel=args.drift_max_rel),
         )
     except (TypeError, ValueError) as exc:

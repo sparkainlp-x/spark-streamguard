@@ -173,3 +173,18 @@ def test_module_entry_point_in_process(monkeypatch, capsys):
     assert e.value.code == 0
     out = capsys.readouterr().out.splitlines()
     assert json.loads(out[1])["reason"] == "NO_REFERENCE"
+
+
+@pytest.mark.parametrize("mode", ["median", "ewma", "detrend", "diff"])
+def test_reference_flag(mode):
+    x = series(30, spikes=[25 * 32 + 9])
+    code, recs, _ = call(
+        ["--reference", mode, "--ewma-alpha", "0.2", "--warmup", "16"], "\n".join(map(str, x))
+    )
+    assert code == 0 and recs[0]["reference"] == mode
+    assert recs[1 + 25]["reason"] == "SCORE_OVER_TAU"
+
+
+def test_reference_flag_rejects_unknown():
+    with pytest.raises(SystemExit):
+        call(["--reference", "mean"], "")

@@ -57,6 +57,7 @@ from streamguard.reference import DEFAULT_REFERENCE, make_reference
 from streamguard.score import BLOCK, score_components
 
 ScoreResult = tuple[float, float | None] | Reason
+_OFFSETS = np.arange(BLOCK)
 
 
 @runtime_checkable
@@ -188,7 +189,7 @@ class _TrailingMedianScorer:
         self.scale_method = "fixed"
 
     def _push(self, x: np.ndarray) -> None:
-        idx = (self._pos + np.arange(BLOCK)) % self.ref_window
+        idx = (self._pos + _OFFSETS) % self.ref_window
         self._buf[idx] = x
         self._pos = (self._pos + BLOCK) % self.ref_window
         self._count = min(self._count + BLOCK, self.ref_window)

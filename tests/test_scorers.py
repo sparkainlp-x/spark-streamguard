@@ -1,5 +1,6 @@
 """Pluggable scorers: every scorer is wrapped by the same fail-closed, audited gate."""
 
+import gc
 import io
 import json
 import math
@@ -148,11 +149,15 @@ def test_ewma_ring_buffer_wraps_and_memory_is_constant(rng):
     assert g.calibrated and g.scorer._count == 40
     tracemalloc.start()
     run(g, data[200:3000])
+    gc.collect()
     mid, _ = tracemalloc.get_traced_memory()
     run(g, data[3000:])
+    gc.collect()
     end, _ = tracemalloc.get_traced_memory()
     tracemalloc.stop()
-    assert end - mid < 4096
+    # 3,000 more blocks: any per-block growth of >= 6 bytes would exceed this. The slack covers
+    # allocator caches of freed numpy temporaries (7.6 KB seen once on CPython 3.11 in CI).
+    assert end - mid < 16384
 
 
 def test_ewma_overflow_is_fail_closed():

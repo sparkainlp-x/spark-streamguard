@@ -23,7 +23,7 @@ NAN = float("nan")
 def test_default_is_diff():
     assert DEFAULT_REFERENCE == "diff"
     assert MODES == ("median", "ewma", "detrend", "diff")
-    assert StreamGuard().config()["reference"] == "diff"
+    assert StreamGuard().config()["scorer_params"]["reference"] == "diff"
 
 
 def test_make_reference_types_and_alias():
@@ -188,8 +188,9 @@ def test_constant_memory_per_mode(rng, mode):
     end, _ = tracemalloc.get_traced_memory()
     tracemalloc.stop()
     assert end - mid < 4096, (mode, mid, end)
-    for name in type(g._ref).__slots__:
-        assert not isinstance(getattr(g._ref, name), (list, dict, set, tuple))
+    ref = g.scorer._ref
+    for name in type(ref).__slots__:
+        assert not isinstance(getattr(ref, name), (list, dict, set, tuple))
 
 
 def test_diff_resets_after_invalid_block():

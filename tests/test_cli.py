@@ -181,7 +181,7 @@ def test_reference_flag(mode):
     code, recs, _ = call(
         ["--reference", mode, "--ewma-alpha", "0.2", "--warmup", "16"], "\n".join(map(str, x))
     )
-    assert code == 0 and recs[0]["reference"] == mode
+    assert code == 0 and recs[0]["scorer_params"]["reference"] == mode
     assert recs[1 + 25]["reason"] == "SCORE_OVER_TAU"
 
 

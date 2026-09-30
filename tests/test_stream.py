@@ -163,7 +163,7 @@ def test_streaming_memory_is_constant(rng):
     for name in StreamGuard.__slots__:
         assert not isinstance(getattr(g, name), (list, dict, set, tuple)), name
     assert not hasattr(g, "__dict__")
-    ref_state = g._ref.last
+    ref_state = g.scorer._ref.last
     tracemalloc.start()
     for b in data[500:5000]:
         g.process(b)
@@ -174,14 +174,14 @@ def test_streaming_memory_is_constant(rng):
     tracemalloc.stop()
     assert end - mid < 4096, (mid, end)  # 15k more blocks, no growth
     assert peak < 1_000_000
-    assert isinstance(ref_state, float) and g._wu_buf is None
+    assert isinstance(ref_state, float) and g.scorer._wu is None
 
 
 def test_warmup_buffer_released(rng):
     g = StreamGuard(warmup_blocks=4)
-    assert g._wu_buf.shape == (4, 32)
+    assert g.scorer._wu.shape == (4, 32)
     warm(g, rng, 5)
-    assert g._wu_buf is None
+    assert g.scorer._wu is None
 
 
 def test_trailing_reference_ring_buffer_wraps():
@@ -220,7 +220,7 @@ def test_decision_json_is_strict():
     assert rec["score"] is None and rec["peak"] is None
     assert rec == {
         "type": "decision",
-        "v": 1,
+        "v": 2,
         "i": 3,
         "admit": False,
         "latch": 1,
@@ -263,11 +263,14 @@ def test_audit_log_to_stream_and_path(rng, tmp_path):
 def test_config_fixed_vector_reference():
     cfg = StreamGuard(tau=0.5, reference=np.zeros(32)).config()
     assert cfg["mode"] == "fixed" and cfg["tau"] == 0.5 and "ref_window" not in cfg
-    assert cfg["reference"] == "fixed" and cfg["reference_value"] == [0.0] * 32
+    assert cfg["scorer"] == "spark"
+    assert cfg["scorer_params"]["reference"] == "fixed"
+    assert cfg["scorer_params"]["reference_value"] == [0.0] * 32
     json.dumps(cfg, allow_nan=False)
 
 
 def test_stream_defaults():
     g = StreamGuard()
     cfg = g.config()
-    assert cfg["warmup_blocks"] == 64 and cfg["quantile"] == 0.999 and cfg["reference"] == "diff"
+    assert cfg["warmup_blocks"] == 64 and cfg["quantile"] == 0.999
+    assert cfg["scorer"] == "spark" and cfg["scorer_params"]["reference"] == "diff"

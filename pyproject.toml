@@ -63,4 +63,4 @@ select = ["E", "F", "I", "UP", "B", "SIM"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["streamguard"]
-known-local-folder = ["protocol", "data", "download", "run", "make_tables", "nab_official"]
+known-local-folder = ["protocol", "data", "download", "run", "make_tables", "nab_official", "gate", "pivot"]

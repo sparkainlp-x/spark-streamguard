@@ -40,15 +40,17 @@ from streamguard.calibrate import (
     MIN_WARMUP_BLOCKS,
     CalibrationError,
     DriftConfig,
-    calibrate_tau,
     drift_update,
     validate_quantile,
 )
 from streamguard.latch import Reason, check_block, decide, tau_is_valid
-from streamguard.reference import DEFAULT_REFERENCE, make_reference
-from streamguard.score import BLOCK, score_components
+from streamguard.score import BLOCK
+from streamguard.scorers import Scorer, make_scorer
 
-SCHEMA_VERSION = 1
+# v2: the config record names the scorer ("scorer", "scorer_params") instead of flat
+# reference fields; decisions may carry the SEQUENCE_GAP reason.
+SCHEMA_VERSION = 2
+DEFAULT_SCORER = "spark"
 
 # Stream defaults chosen by the SYNTHETIC warm-up x quantile sweep (benchmarks/warmup_sweep.py):
 # rule 2 (no setting reached a 1% false-latch rate; lowest rate with recall >= 90%).
@@ -104,7 +106,7 @@ class Decision:
 
 
 class StreamGuard:
-    """Fail-closed streaming guard for one stream of 32-value blocks.
+    """Fail-closed, audited gate for one stream of 32-value blocks, around any scorer.
 
     Parameters
     ----------
@@ -120,14 +122,18 @@ class StreamGuard:
     scale:
         ``None``: robust warm-up scale in calibrated mode, ``1.0`` in fixed mode.
         A positive real: use it as the residual divisor in both modes.
-    reference:
-        ``"diff"`` (default, first difference), ``"detrend"`` (in-block line fit), ``"ewma"``
-        (level tracking), ``"median"`` (trailing median, alias ``"trailing_median"``; the
-        0.1.0.dev0 default), a scalar, or a 32-vector. See :mod:`streamguard.reference`.
-    ref_blocks:
-        Size of the trailing-median window, in blocks (``median`` only).
-    ewma_alpha:
-        Per-sample smoothing factor in (0, 1] (``ewma`` only).
+    scorer:
+        ``"spark"`` (default), ``"ewma"``, ``"isoforest"`` (needs scikit-learn), or any object
+        implementing the :class:`streamguard.scorers.Scorer` protocol. The gate (validation,
+        reason codes, calibration, drift, audit log) is identical for every scorer.
+    scorer_params:
+        Keyword arguments for a built-in scorer given by name, e.g. ``{"lam": 0.2}`` for
+        ``ewma``.
+    reference, ref_blocks, ewma_alpha:
+        Shortcuts for the ``spark`` scorer: reference mode (``"diff"`` default, ``"detrend"``,
+        ``"ewma"``, ``"median"``, a scalar or a 32-vector), trailing-median window in blocks,
+        per-sample smoothing factor. See :mod:`streamguard.reference`. Passing them with
+        another scorer raises ``ValueError``.
     drift:
         Optional :class:`DriftConfig` for a bounded slow tau update after calibration.
     audit:
@@ -137,18 +143,17 @@ class StreamGuard:
     __slots__ = (
         "_audit",
         "_drift",
+        "_expected_seq",
         "_index",
         "_quantile",
-        "_ref",
-        "_scale",
         "_scale_fixed",
         "_tau",
         "_tau0",
         "_warmup_blocks",
-        "_wu_buf",
         "_wu_n",
         "calibration",
         "mode",
+        "scorer",
     )
 
     def __init__(
@@ -158,9 +163,11 @@ class StreamGuard:
         warmup_blocks: int = STREAM_WARMUP_BLOCKS,
         quantile: float = STREAM_QUANTILE,
         scale: float | None = None,
-        reference: str | float | ArrayLike = DEFAULT_REFERENCE,
-        ref_blocks: int = 4,
-        ewma_alpha: float = 0.05,
+        scorer: str | Scorer = DEFAULT_SCORER,
+        scorer_params: dict[str, Any] | None = None,
+        reference: str | float | ArrayLike | None = None,
+        ref_blocks: int | None = None,
+        ewma_alpha: float | None = None,
         drift: DriftConfig | None = None,
         audit: AuditLogWriter | None = None,
     ) -> None:
@@ -181,22 +188,20 @@ class StreamGuard:
         self._audit = audit
         self._scale_fixed = scale
         self._index = 0
+        self._expected_seq: int | None = None
         self.calibration = None
-
-        self._ref = make_reference(reference, ref_blocks, ewma_alpha)
+        self.scorer = _build_scorer(scorer, scorer_params, reference, ref_blocks, ewma_alpha)
 
         if tau is None:
             self.mode = "calibrated"
             self._tau = None
             self._tau0 = None
-            self._scale = None
-            self._wu_buf = np.empty((warmup_blocks, BLOCK), dtype=np.float64)
+            self.scorer.start(warmup_blocks, scale)
         else:
             self.mode = "fixed"
             self._tau = float(tau)
             self._tau0 = float(tau)
-            self._scale = scale if scale is not None else 1.0
-            self._wu_buf = None
+            self.scorer.fit_fixed(scale)
         self._wu_n = 0
 
     # ------------------------------------------------------------------ properties
@@ -206,7 +211,7 @@ class StreamGuard:
 
     @property
     def scale(self) -> float | None:
-        return self._scale
+        return getattr(self.scorer, "scale", None)
 
     @property
     def blocks_seen(self) -> int:
@@ -226,8 +231,8 @@ class StreamGuard:
             "warmup_blocks": self._warmup_blocks if self.mode == "calibrated" else None,
             "quantile": self._quantile,
             "scale": self._scale_fixed,
-            "reference": self._ref.name,
-            **self._ref.config(),
+            "scorer": self.scorer.name,
+            "scorer_params": self.scorer.params(),
             "drift_rate": self._drift.rate,
             "drift_max_rel": self._drift.max_rel,
             "block": BLOCK,
@@ -239,43 +244,45 @@ class StreamGuard:
             self._audit.write(d)
         return d
 
+    def _gap(self, seq: int | None) -> bool:
+        if seq is None:
+            return False
+        if isinstance(seq, bool) or not isinstance(seq, (int, np.integer)):
+            raise TypeError(f"seq must be an int or None, got {type(seq).__name__}")
+        seq = int(seq)
+        gap = self._expected_seq is not None and seq != self._expected_seq
+        self._expected_seq = seq + 1
+        return gap
+
     # ------------------------------------------------------------------ main entry
-    def process(self, block: object) -> Decision:
-        """Score one block and return the admit/latch :class:`Decision`. Never raises on data."""
+    def process(self, block: object, seq: int | None = None) -> Decision:
+        """Score one block and return the admit/latch :class:`Decision`. Never raises on data.
+
+        ``seq`` is an optional producer sequence number. When given, a block whose ``seq`` is
+        not the previous ``seq + 1`` (dropped, repeated or reordered blocks) latches with
+        ``SEQUENCE_GAP``, is not scored, and resets the scorer like an invalid block.
+        """
         i = self._index
         self._index += 1
         tau = self._tau
 
+        gap = self._gap(seq)
         arr, reason = check_block(block)
-        if arr is None:
-            self._ref.on_invalid()
+        if gap:  # reported even if the block is also malformed
+            reason = Reason.SEQUENCE_GAP
+        if arr is None or gap:
+            self.scorer.on_invalid()
             return self._emit(Decision(i, False, None, tau, reason))
 
-        ref = self._ref.ref(arr)
-        if ref is None:  # first valid block only seeds the trailing reference
-            self._ref.push(arr)
-            return self._emit(Decision(i, False, None, tau, Reason.NO_REFERENCE))
-
-        with np.errstate(over="ignore", invalid="ignore"):
-            raw = arr - ref
-        if not np.all(np.isfinite(raw)):
-            self._ref.push(arr)
-            return self._emit(Decision(i, False, None, tau, Reason.NONFINITE_SCORE))
-
         if tau is None:  # warm-up (calibrated mode)
-            self._wu_buf[self._wu_n] = raw
+            r = self.scorer.warmup(arr)
+            if r is not Reason.NOT_CALIBRATED:
+                return self._emit(Decision(i, False, None, None, r))
             self._wu_n += 1
-            self._ref.push(arr)
             if self._wu_n < self._warmup_blocks:
                 return self._emit(Decision(i, False, None, None, Reason.NOT_CALIBRATED))
-            scale_arg: str | float = "robust" if self._scale_fixed is None else self._scale_fixed
             try:
-                cal = calibrate_tau(
-                    self._wu_buf,
-                    quantile=self._quantile,
-                    scale=scale_arg,
-                    min_blocks=self._warmup_blocks,
-                )
+                cal = self.scorer.fit(self._quantile)
             except (CalibrationError, ValueError):
                 self._wu_n = 0
                 return self._emit(
@@ -285,8 +292,6 @@ class StreamGuard:
                 )
             self.calibration = cal
             self._tau = self._tau0 = cal.tau
-            self._scale = cal.scale
-            self._wu_buf = None  # release the warm-up buffer
             return self._emit(
                 Decision(
                     i,
@@ -299,20 +304,45 @@ class StreamGuard:
                 )
             )
 
-        with np.errstate(over="ignore", invalid="ignore"):
-            r = raw / self._scale
-        self._ref.push(arr)
-        if not np.all(np.isfinite(r)):
-            return self._emit(Decision(i, False, None, tau, Reason.NONFINITE_SCORE))
-        bs = score_components(r)
-        admit, reason = decide(bs.score, tau)
+        res = self.scorer.score(arr)
+        if isinstance(res, Reason):
+            return self._emit(Decision(i, False, None, tau, res))
+        score, peak = res
+        admit, reason = decide(score, tau)
+        if reason is Reason.NONFINITE_SCORE:
+            return self._emit(Decision(i, False, None, tau, reason))
 
         event = tau_next = None
-        new_tau = drift_update(tau, self._tau0, bs.score, self._quantile, self._drift)
+        new_tau = drift_update(tau, self._tau0, score, self._quantile, self._drift)
         if new_tau != tau:
             self._tau = new_tau
             event, tau_next = "TAU_DRIFT", new_tau
-        return self._emit(Decision(i, admit, bs.score, tau, reason, bs.peak, event, tau_next))
+        return self._emit(Decision(i, admit, score, tau, reason, peak, event, tau_next))
+
+
+def _build_scorer(
+    scorer: str | Scorer,
+    scorer_params: dict[str, Any] | None,
+    reference: Any,
+    ref_blocks: int | None,
+    ewma_alpha: float | None,
+) -> Scorer:
+    shortcuts = {"reference": reference, "ref_blocks": ref_blocks, "ewma_alpha": ewma_alpha}
+    shortcuts = {k: v for k, v in shortcuts.items() if v is not None}
+    params = dict(scorer_params or {})
+    if isinstance(scorer, str):
+        if shortcuts and scorer != "spark":
+            raise ValueError(f"{sorted(shortcuts)} only apply to the 'spark' scorer")
+        return make_scorer(scorer, **params, **shortcuts)
+    if shortcuts or params:
+        raise ValueError("scorer_params/reference options cannot be combined with a scorer object")
+    missing = [m for m in _PROTOCOL if not hasattr(scorer, m)]
+    if missing:
+        raise TypeError(f"scorer object is missing {missing}")
+    return scorer
+
+
+_PROTOCOL = ("name", "start", "warmup", "fit", "fit_fixed", "score", "on_invalid", "params")
 
 
 class AuditLogWriter:

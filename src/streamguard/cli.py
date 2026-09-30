@@ -25,7 +25,14 @@ from streamguard import __version__
 from streamguard.calibrate import DriftConfig
 from streamguard.reference import DEFAULT_REFERENCE, MODES
 from streamguard.score import BLOCK
-from streamguard.stream import STREAM_QUANTILE, STREAM_WARMUP_BLOCKS, AuditLogWriter, StreamGuard
+from streamguard.scorers import SCORERS
+from streamguard.stream import (
+    DEFAULT_SCORER,
+    STREAM_QUANTILE,
+    STREAM_WARMUP_BLOCKS,
+    AuditLogWriter,
+    StreamGuard,
+)
 
 
 def _parse_token(tok: str) -> float | None:
@@ -118,22 +125,47 @@ def build_parser() -> argparse.ArgumentParser:
         help="fixed residual scale (default: robust warm-up scale, or 1.0 with --tau)",
     )
     p.add_argument(
+        "--scorer",
+        choices=sorted(SCORERS),
+        default=DEFAULT_SCORER,
+        help=f"block scorer wrapped by the gate (default {DEFAULT_SCORER}); isoforest needs "
+        "scikit-learn",
+    )
+    p.add_argument(
         "--reference",
         choices=MODES,
-        default=DEFAULT_REFERENCE,
-        help=f"reference mode (default {DEFAULT_REFERENCE}); see README",
+        default=None,
+        help=f"spark scorer: reference mode (default {DEFAULT_REFERENCE}); see README",
     )
     p.add_argument(
         "--ewma-alpha",
         type=float,
-        default=0.05,
-        help="smoothing factor for --reference ewma (default 0.05)",
+        default=None,
+        help="spark scorer: smoothing factor for --reference ewma (default 0.05)",
     )
     p.add_argument(
         "--ref-blocks",
         type=int,
-        default=4,
-        help="trailing-median reference window in blocks (default 4)",
+        default=None,
+        help="spark scorer: trailing-median reference window in blocks (default 4)",
+    )
+    p.add_argument(
+        "--ewma-lambda",
+        type=float,
+        default=None,
+        help="ewma scorer: EWMA weight lambda (default 0.2)",
+    )
+    p.add_argument(
+        "--ref-window",
+        type=int,
+        default=None,
+        help="ewma/isoforest scorers: trailing-median window in samples (default 288)",
+    )
+    p.add_argument(
+        "--trees",
+        type=int,
+        default=None,
+        help="isoforest scorer: number of trees (default 100)",
     )
     p.add_argument(
         "--drift-rate",
@@ -163,18 +195,29 @@ def run(
     stdout = stdout if stdout is not None else sys.stdout
     stderr = stderr if stderr is not None else sys.stderr
 
+    scorer_params = {
+        k: v
+        for k, v in (
+            ("lam", args.ewma_lambda),
+            ("ref_window", args.ref_window),
+            ("n_estimators", args.trees),
+        )
+        if v is not None
+    }
     try:
         guard = StreamGuard(
             tau=args.tau,
             warmup_blocks=args.warmup,
             quantile=args.quantile,
             scale=args.scale,
+            scorer=args.scorer,
+            scorer_params=scorer_params,
             reference=args.reference,
             ref_blocks=args.ref_blocks,
             ewma_alpha=args.ewma_alpha,
             drift=DriftConfig(rate=args.drift_rate, max_rel=args.drift_max_rel),
         )
-    except (TypeError, ValueError) as exc:
+    except (TypeError, ValueError, ImportError) as exc:
         print(f"streamguard: invalid configuration: {exc}", file=stderr)
         return 2
 

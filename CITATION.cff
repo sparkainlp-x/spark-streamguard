@@ -6,6 +6,7 @@ authors:
   - family-names: "Brisson"
     given-names: "Jean-François"
     affiliation: "Spark AI NLP"
+    orcid: "https://orcid.org/0009-0000-9778-5374"
 repository-code: "https://github.com/sparkainlp-x/spark-streamguard"
 license: MIT
 version: "0.1.0.dev0"
@@ -35,5 +36,6 @@ references:
     authors:
       - family-names: "Brisson"
         given-names: "Jean-François"
+        orcid: "https://orcid.org/0009-0000-9778-5374"
     repository-code: "https://github.com/sparkainlp-x/oes512q-latch"
     doi: "10.5281/zenodo.22998570"

@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased: milestone 4, real-data benchmark (REPORTED)
+
+- `benchmarks/real/`:
+  - `download.py`: pinned NAB `ea702d7` and SMD `7fb0e0a` files, SHA-256 manifests, cached
+    outside git.
+  - `protocol.py`: shared blocking, labels, warm-up and thresholds; baselines; metrics.
+  - `run.py`: tune/test split, significance, throughput, memory.
+  - `make_tables.py`: renders the tables.
+  - `nab_official.py`: optional NAB official scorer.
+- Results (`results.json`, `results.md`, README), REPORTED 2026-09-29:
+  - NAB: StreamGuard loses to an EWMA chart (default F1 0.161 vs 0.272; significant on F1
+    and AP).
+  - SMD: a tie at F1 around 0.19 with false-latch rates around 40% for all methods.
+  - `StreamGuard.process()` runs at about 43k blocks/s (below the 100k TARGET) with about
+    53 KiB peak per stream.
+- Yahoo S5 not included (licence/registration required).
+- New optional extra `bench` (scikit-learn, scipy); CI installs it and runs a tiny generated
+  fixture, with no downloads.
+
 ## Unreleased: warm-up and quantile defaults
 
 - `StreamGuard` / CLI defaults changed to `warmup_blocks = 64` (was 32) and `quantile = 0.999`

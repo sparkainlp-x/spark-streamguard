@@ -1,0 +1,4717 @@
+{
+ "evidence": "REPORTED (public data, this code; settings chosen on tuning splits only)",
+ "date": "2026-09-29",
+ "streamguard_version": "0.1.0.dev0",
+ "code_commit": "f06a09be1214c844cf564f8f7adc00e22caa6116 (main at run time) plus the uncommitted benchmarks/real code of PR 'Milestone 4'",
+ "protocol": "Shared protocol, detectors and metrics for the real-data benchmark (REPORTED numbers).\n\nProtocol (fixed before any result was computed; identical for every method):\n\n1. **Blocking.** Each series is cut into contiguous, non-overlapping 32-sample blocks; a\n   trailing partial block is dropped. SMD machines are multivariate (38 channels); every method\n   scores each channel separately (see 5).\n2. **Labels.** A block is positive if any of its samples lies in a labelled anomaly (NAB:\n   ``combined_windows.json`` windows, inclusive; SMD: ``test_label == 1``). Labels are used only\n   for scoring and for choosing settings on the tuning split.\n3. **Warm-up / calibration.** Block 0 seeds references; blocks 1..64 (``WARMUP = 64``, the\n   StreamGuard default) are the calibration window for every method; blocks 65.. are the\n   evaluation region. Labels inside blocks 0..64 are ignored (warm-up anomalies are counted and\n   reported, not removed). A series needs at least ``MIN_BLOCKS = 97`` blocks (warm-up plus 32\n   evaluation blocks); shorter series are **excluded** and listed.\n4. **Threshold.** For every method and channel, ``tau`` = the ``q`` quantile (numpy linear) of\n   that method's warm-up block scores; a block latches iff ``score >= max(tau, 1e-12)`` (a\n   zero score never latches). Fixed-threshold rows are marked.\n5. **Multivariate aggregation (SMD).** Per channel ``ratio = score / max(tau, 1e-12)``; the\n   block ratio is the maximum over channels and the block latches iff it is >= 1. Channels\n   whose warm-up samples (blocks 0..64) are exactly constant are excluded for all methods\n   (counted). NAB is univariate, so its ratio is the channel ratio.\n6. **Settings.** Each method's hyper-parameters and ``q`` are chosen on the tuning split only\n   (highest pooled F1 over the tuning series' evaluation blocks; ties: first in grid order), then\n   frozen and applied once to the test split. \"Fixed\" rows use settings fixed in advance.\n7. **Split.** Per dataset, the included series are shuffled with ``numpy.random.default_rng(42)``\n   and split in half (tune gets the extra series when the count is odd).\n\nResidual used by the ported baselines (as in the oes512q-latch benchmark): for each block, the\nmedian of the trailing ``L = min(288, max(32, floor(0.05 * n)))`` samples ending just before the\nblock (fewer if not available yet), divided per channel by the robust warm-up scale\n(1.4826*MAD, fallback 1.2533*mean absolute deviation).\n",
+ "hardware": {
+  "cpu": "Intel(R) Xeon(R) Processor",
+  "logical_cpus": 8,
+  "python": "3.13.5",
+  "numpy": "2.5.3",
+  "platform": "Linux-6.12.94+-x86_64-with-glibc2.41",
+  "threads_used": 1
+ },
+ "datasets": {
+  "nab": {
+   "series_total": 47,
+   "excluded_short": [
+    "realAWSCloudwatch/iio_us-east-1_i-a2eb1cd9_NetworkIn.csv",
+    "realAdExchange/exchange-2_cpc_results.csv",
+    "realAdExchange/exchange-2_cpm_results.csv",
+    "realAdExchange/exchange-3_cpc_results.csv",
+    "realAdExchange/exchange-3_cpm_results.csv",
+    "realAdExchange/exchange-4_cpc_results.csv",
+    "realAdExchange/exchange-4_cpm_results.csv",
+    "realKnownCause/rogue_agent_key_hold.csv",
+    "realTraffic/TravelTime_387.csv",
+    "realTraffic/TravelTime_451.csv",
+    "realTraffic/occupancy_6005.csv",
+    "realTraffic/occupancy_t4013.csv",
+    "realTraffic/speed_6005.csv",
+    "realTraffic/speed_7578.csv",
+    "realTraffic/speed_t4013.csv"
+   ],
+   "tune": [
+    "realAWSCloudwatch/ec2_cpu_utilization_ac20cd.csv",
+    "realAWSCloudwatch/ec2_cpu_utilization_c6585a.csv",
+    "realAWSCloudwatch/ec2_cpu_utilization_fe7f93.csv",
+    "realAWSCloudwatch/ec2_disk_write_bytes_c0d644.csv",
+    "realAWSCloudwatch/ec2_network_in_257a54.csv",
+    "realKnownCause/ambient_temperature_system_failure.csv",
+    "realKnownCause/ec2_request_latency_system_failure.csv",
+    "realKnownCause/machine_temperature_system_failure.csv",
+    "realKnownCause/nyc_taxi.csv",
+    "realTweets/Twitter_volume_AAPL.csv",
+    "realTweets/Twitter_volume_AMZN.csv",
+    "realTweets/Twitter_volume_CRM.csv",
+    "realTweets/Twitter_volume_FB.csv",
+    "realTweets/Twitter_volume_GOOG.csv",
+    "realTweets/Twitter_volume_IBM.csv",
+    "realTweets/Twitter_volume_UPS.csv"
+   ],
+   "test": [
+    "realAWSCloudwatch/ec2_cpu_utilization_24ae8d.csv",
+    "realAWSCloudwatch/ec2_cpu_utilization_53ea38.csv",
+    "realAWSCloudwatch/ec2_cpu_utilization_5f5533.csv",
+    "realAWSCloudwatch/ec2_cpu_utilization_77c1ca.csv",
+    "realAWSCloudwatch/ec2_cpu_utilization_825cc2.csv",
+    "realAWSCloudwatch/ec2_disk_write_bytes_1ef3de.csv",
+    "realAWSCloudwatch/ec2_network_in_5abac7.csv",
+    "realAWSCloudwatch/elb_request_count_8c0756.csv",
+    "realAWSCloudwatch/grok_asg_anomaly.csv",
+    "realAWSCloudwatch/rds_cpu_utilization_cc0c53.csv",
+    "realAWSCloudwatch/rds_cpu_utilization_e47b3b.csv",
+    "realKnownCause/cpu_utilization_asg_misconfiguration.csv",
+    "realKnownCause/rogue_agent_key_updown.csv",
+    "realTweets/Twitter_volume_CVS.csv",
+    "realTweets/Twitter_volume_KO.csv",
+    "realTweets/Twitter_volume_PFE.csv"
+   ],
+   "channels_total": 32,
+   "channels_constant_in_warmup": 0,
+   "series_with_warmup_labels": 16,
+   "test_positive_blocks": 277,
+   "test_eval_blocks": 2621,
+   "tuning_pooled_f1": {
+    "StreamGuard diff (mode=diff) q=0.99": 0.15831987075928922,
+    "StreamGuard diff (mode=diff) q=0.995": 0.14093959731543623,
+    "StreamGuard diff (mode=diff) q=0.999": 0.14065180102915953,
+    "StreamGuard median (mode=median) q=0.99": 0.20208023774145617,
+    "StreamGuard median (mode=median) q=0.995": 0.19969742813918306,
+    "StreamGuard median (mode=median) q=0.999": 0.20121951219512196,
+    "StreamGuard detrend (mode=detrend) q=0.99": 0.13186813186813184,
+    "StreamGuard detrend (mode=detrend) q=0.995": 0.1312,
+    "StreamGuard detrend (mode=detrend) q=0.999": 0.12682926829268293,
+    "CUSUM (k=0.5) q=0.99": 0.21293103448275866,
+    "CUSUM (k=0.5) q=0.995": 0.21193771626297578,
+    "CUSUM (k=0.5) q=0.999": 0.21153012570437799,
+    "CUSUM (k=1.0) q=0.99": 0.2572307692307692,
+    "CUSUM (k=1.0) q=0.995": 0.2563154651879236,
+    "CUSUM (k=1.0) q=0.999": 0.256631708821715,
+    "CUSUM (k=2.0) q=0.99": 0.2668559261887864,
+    "CUSUM (k=2.0) q=0.995": 0.26638176638176636,
+    "CUSUM (k=2.0) q=0.999": 0.2655246252676659,
+    "EWMA chart (lam=0.1) q=0.99": 0.2218978102189781,
+    "EWMA chart (lam=0.1) q=0.995": 0.22189349112426038,
+    "EWMA chart (lam=0.1) q=0.999": 0.22089552238805968,
+    "EWMA chart (lam=0.2) q=0.99": 0.2222222222222222,
+    "EWMA chart (lam=0.2) q=0.995": 0.2212518195050946,
+    "EWMA chart (lam=0.2) q=0.999": 0.21145374449339208,
+    "EWMA chart (lam=0.3) q=0.99": 0.20946915351506457,
+    "EWMA chart (lam=0.3) q=0.995": 0.20899854862119016,
+    "EWMA chart (lam=0.3) q=0.999": 0.2046783625730994,
+    "Rolling z-score (window=64) q=0.99": 0.11501597444089459,
+    "Rolling z-score (window=64) q=0.995": 0.10197368421052631,
+    "Rolling z-score (window=64) q=0.999": 0.1,
+    "Rolling z-score (window=288) q=0.99": 0.11884550084889643,
+    "Rolling z-score (window=288) q=0.995": 0.11130434782608697,
+    "Rolling z-score (window=288) q=0.999": 0.10193321616871706,
+    "Isolation Forest q=0.99": 0.1614497528830313,
+    "Isolation Forest q=0.995": 0.15280135823429541,
+    "Isolation Forest q=0.999": 0.14776632302405499,
+    "StreamGuard default (untuned) (mode=diff) q=0.999": 0.14065180102915953,
+    "oes512q-latch v2 config (q=0.99) q=0.99": 0.21796759941089838,
+    "oes512q-latch fixed tau=0.50 q=None": 0.20313179643323184
+   },
+   "results": {
+    "streamguard_diff": {
+     "setting": "StreamGuard diff (mode=diff)",
+     "q": 0.99,
+     "tune_f1": 0.15831987075928922,
+     "test": {
+      "tp": 36,
+      "fp": 70,
+      "fn": 241,
+      "tn": 2274,
+      "precision": 0.33962264150943394,
+      "recall": 0.1299638989169675,
+      "f1": 0.1879895561357702,
+      "false_latch_rate": 0.029863481228668942,
+      "mean_ap": 0.29472050134552613,
+      "mean_f1": 0.17028150002361647,
+      "events": 21,
+      "event_recall": 0.8095238095238095,
+      "median_delay_blocks": 4.0
+     }
+    },
+    "streamguard_median": {
+     "setting": "StreamGuard median (mode=median)",
+     "q": 0.99,
+     "tune_f1": 0.20208023774145617,
+     "test": {
+      "tp": 50,
+      "fp": 151,
+      "fn": 227,
+      "tn": 2193,
+      "precision": 0.24875621890547264,
+      "recall": 0.18050541516245489,
+      "f1": 0.20920502092050214,
+      "false_latch_rate": 0.064419795221843,
+      "mean_ap": 0.32855044962531416,
+      "mean_f1": 0.21399650841503276,
+      "events": 21,
+      "event_recall": 0.7619047619047619,
+      "median_delay_blocks": 4.0
+     }
+    },
+    "streamguard_detrend": {
+     "setting": "StreamGuard detrend (mode=detrend)",
+     "q": 0.99,
+     "tune_f1": 0.13186813186813184,
+     "test": {
+      "tp": 38,
+      "fp": 88,
+      "fn": 239,
+      "tn": 2256,
+      "precision": 0.30158730158730157,
+      "recall": 0.1371841155234657,
+      "f1": 0.18858560794044665,
+      "false_latch_rate": 0.03754266211604096,
+      "mean_ap": 0.26658228370792797,
+      "mean_f1": 0.17630967350529594,
+      "events": 21,
+      "event_recall": 0.7619047619047619,
+      "median_delay_blocks": 4.0
+     }
+    },
+    "cusum": {
+     "setting": "CUSUM (k=2.0)",
+     "q": 0.99,
+     "tune_f1": 0.2668559261887864,
+     "test": {
+      "tp": 149,
+      "fp": 825,
+      "fn": 128,
+      "tn": 1519,
+      "precision": 0.15297741273100615,
+      "recall": 0.5379061371841155,
+      "f1": 0.23820943245403672,
+      "false_latch_rate": 0.35196245733788395,
+      "mean_ap": 0.31002673008641646,
+      "mean_f1": 0.25495518295542674,
+      "events": 21,
+      "event_recall": 0.8095238095238095,
+      "median_delay_blocks": 4.0
+     }
+    },
+    "ewma": {
+     "setting": "EWMA chart (lam=0.2)",
+     "q": 0.99,
+     "tune_f1": 0.2222222222222222,
+     "test": {
+      "tp": 66,
+      "fp": 143,
+      "fn": 211,
+      "tn": 2201,
+      "precision": 0.3157894736842105,
+      "recall": 0.23826714801444043,
+      "f1": 0.2716049382716049,
+      "false_latch_rate": 0.06100682593856655,
+      "mean_ap": 0.36936848182367993,
+      "mean_f1": 0.28125290101413536,
+      "events": 21,
+      "event_recall": 0.8571428571428571,
+      "median_delay_blocks": 4.0
+     }
+    },
+    "zscore": {
+     "setting": "Rolling z-score (window=288)",
+     "q": 0.99,
+     "tune_f1": 0.11884550084889643,
+     "test": {
+      "tp": 10,
+      "fp": 21,
+      "fn": 267,
+      "tn": 2323,
+      "precision": 0.3225806451612903,
+      "recall": 0.036101083032490974,
+      "f1": 0.06493506493506493,
+      "false_latch_rate": 0.008959044368600682,
+      "mean_ap": 0.25896337176646556,
+      "mean_f1": 0.07086036205492353,
+      "events": 21,
+      "event_recall": 0.47619047619047616,
+      "median_delay_blocks": 4.0
+     }
+    },
+    "iforest": {
+     "setting": "Isolation Forest",
+     "q": 0.99,
+     "tune_f1": 0.1614497528830313,
+     "test": {
+      "tp": 46,
+      "fp": 43,
+      "fn": 231,
+      "tn": 2301,
+      "precision": 0.5168539325842697,
+      "recall": 0.16606498194945848,
+      "f1": 0.25136612021857924,
+      "false_latch_rate": 0.01834470989761092,
+      "mean_ap": 0.39156026969603525,
+      "mean_f1": 0.2581611685374083,
+      "events": 21,
+      "event_recall": 0.8095238095238095,
+      "median_delay_blocks": 4.0
+     }
+    },
+    "sg_default": {
+     "setting": "StreamGuard default (untuned) (mode=diff)",
+     "q": 0.999,
+     "tune_f1": 0.14065180102915953,
+     "test": {
+      "tp": 29,
+      "fp": 54,
+      "fn": 248,
+      "tn": 2290,
+      "precision": 0.3493975903614458,
+      "recall": 0.10469314079422383,
+      "f1": 0.16111111111111112,
+      "false_latch_rate": 0.02303754266211604,
+      "mean_ap": 0.29472050134552613,
+      "mean_f1": 0.15800635709273583,
+      "events": 21,
+      "event_recall": 0.7142857142857143,
+      "median_delay_blocks": 4.0
+     }
+    },
+    "oes_latch": {
+     "setting": "oes512q-latch v2 config (q=0.99)",
+     "q": 0.99,
+     "tune_f1": 0.21796759941089838,
+     "test": {
+      "tp": 54,
+      "fp": 153,
+      "fn": 223,
+      "tn": 2191,
+      "precision": 0.2608695652173913,
+      "recall": 0.19494584837545126,
+      "f1": 0.2231404958677686,
+      "false_latch_rate": 0.06527303754266212,
+      "mean_ap": 0.33780526656180604,
+      "mean_f1": 0.20752207302049197,
+      "events": 21,
+      "event_recall": 0.7619047619047619,
+      "median_delay_blocks": 4.0
+     }
+    },
+    "oes_fixed": {
+     "setting": "oes512q-latch fixed tau=0.50",
+     "q": null,
+     "tune_f1": 0.20313179643323184,
+     "test": {
+      "tp": 255,
+      "fp": 2222,
+      "fn": 22,
+      "tn": 122,
+      "precision": 0.10294711344368188,
+      "recall": 0.9205776173285198,
+      "f1": 0.1851851851851852,
+      "false_latch_rate": 0.9479522184300341,
+      "mean_ap": 0.33780526656180604,
+      "mean_f1": 0.229898063934695,
+      "events": 21,
+      "event_recall": 1.0,
+      "median_delay_blocks": 0.0
+     }
+    }
+   },
+   "best_baseline": "ewma",
+   "significance_vs_best_baseline": {
+    "sg_default": {
+     "f1": {
+      "n": 15,
+      "mean_diff": -0.12324654392139953,
+      "ci95": [
+       -0.22001477457876878,
+       -0.03545478793649989
+      ],
+      "wilcoxon_p": 0.0280561241492436,
+      "wins": 3,
+      "losses": 9
+     },
+     "ap": {
+      "n": 15,
+      "mean_diff": -0.07464798047815371,
+      "ci95": [
+       -0.125862965171836,
+       -0.029941067237003863
+      ],
+      "wilcoxon_p": 0.00537109375,
+      "wins": 3,
+      "losses": 12
+     }
+    },
+    "streamguard_diff": {
+     "f1": {
+      "n": 15,
+      "mean_diff": -0.11097140099051889,
+      "ci95": [
+       -0.21172558300291838,
+       -0.020575982857928977
+      ],
+      "wilcoxon_p": 0.03304694365260125,
+      "wins": 3,
+      "losses": 10
+     },
+     "ap": {
+      "n": 15,
+      "mean_diff": -0.07464798047815371,
+      "ci95": [
+       -0.125862965171836,
+       -0.029941067237003863
+      ],
+      "wilcoxon_p": 0.00537109375,
+      "wins": 3,
+      "losses": 12
+     }
+    },
+    "streamguard_median": {
+     "f1": {
+      "n": 15,
+      "mean_diff": -0.06725639259910261,
+      "ci95": [
+       -0.17152321871538764,
+       0.02617799673468604
+      ],
+      "wilcoxon_p": 0.1823383541807685,
+      "wins": 4,
+      "losses": 8
+     },
+     "ap": {
+      "n": 15,
+      "mean_diff": -0.040818032198365745,
+      "ci95": [
+       -0.07869350003172038,
+       -0.007963057425770496
+      ],
+      "wilcoxon_p": 0.041259765625,
+      "wins": 3,
+      "losses": 12
+     }
+    },
+    "streamguard_detrend": {
+     "f1": {
+      "n": 15,
+      "mean_diff": -0.1049432275088394,
+      "ci95": [
+       -0.20482227961371788,
+       -0.01681828222306307
+      ],
+      "wilcoxon_p": 0.034170472692229406,
+      "wins": 3,
+      "losses": 9
+     },
+     "ap": {
+      "n": 15,
+      "mean_diff": -0.10278619811575197,
+      "ci95": [
+       -0.15542580652921603,
+       -0.05769920131088396
+      ],
+      "wilcoxon_p": 0.00042724609375,
+      "wins": 2,
+      "losses": 13
+     }
+    }
+   },
+   "throughput_scoring": {
+    "streamguard_diff": {
+     "blocks_x_channels": 3645,
+     "seconds": 0.05396957171615213,
+     "per_s": 67538.05679931154
+    },
+    "streamguard_median": {
+     "blocks_x_channels": 3645,
+     "seconds": 0.08857410302152857,
+     "per_s": 41151.98320567871
+    },
+    "streamguard_detrend": {
+     "blocks_x_channels": 3645,
+     "seconds": 0.06558370700804517,
+     "per_s": 55577.82818761475
+    },
+    "cusum": {
+     "blocks_x_channels": 3645,
+     "seconds": 0.4412828529602848,
+     "per_s": 8260.008236322856
+    },
+    "ewma": {
+     "blocks_x_channels": 3645,
+     "seconds": 0.046484120888635516,
+     "per_s": 78413.87403523282
+    },
+    "zscore": {
+     "blocks_x_channels": 3645,
+     "seconds": 0.08891319500980899,
+     "per_s": 40995.04015796396
+    },
+    "iforest": {
+     "blocks_x_channels": 3645,
+     "seconds": 1.094715151062701,
+     "per_s": 3329.6332808234138
+    },
+    "sg_default": {
+     "blocks_x_channels": 3645,
+     "seconds": 0.05679647292708978,
+     "per_s": 64176.52033919649
+    },
+    "oes_latch": {
+     "blocks_x_channels": 3645,
+     "seconds": 0.047637626819778234,
+     "per_s": 76515.1466043784
+    },
+    "oes_fixed": {
+     "blocks_x_channels": 3645,
+     "seconds": 0.04899791395291686,
+     "per_s": 74390.9221013482
+    }
+   },
+   "per_series_test": {
+    "realAWSCloudwatch/ec2_cpu_utilization_24ae8d.csv": {
+     "streamguard_diff": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 14,
+      "tn": 46,
+      "ap": 0.4575209888473235,
+      "positives": 15,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.125,
+      "channels": 1
+     },
+     "streamguard_median": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 13,
+      "tn": 46,
+      "ap": 0.450069660368983,
+      "positives": 15,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.23529411764705882,
+      "channels": 1
+     },
+     "streamguard_detrend": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 13,
+      "tn": 46,
+      "ap": 0.44836977466432476,
+      "positives": 15,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.23529411764705882,
+      "channels": 1
+     },
+     "cusum": {
+      "tp": 15,
+      "fp": 46,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.19755890378832214,
+      "positives": 15,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.3947368421052631,
+      "channels": 1
+     },
+     "ewma": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 13,
+      "tn": 46,
+      "ap": 0.42968515420940906,
+      "positives": 15,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.23529411764705882,
+      "channels": 1
+     },
+     "zscore": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 15,
+      "tn": 46,
+      "ap": 0.32117992344611745,
+      "positives": 15,
+      "events": 1,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "iforest": {
+      "tp": 2,
+      "fp": 1,
+      "fn": 13,
+      "tn": 45,
+      "ap": 0.2980942052540861,
+      "positives": 15,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.2222222222222222,
+      "channels": 1
+     },
+     "sg_default": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 14,
+      "tn": 46,
+      "ap": 0.4575209888473235,
+      "positives": 15,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.125,
+      "channels": 1
+     },
+     "oes_latch": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 13,
+      "tn": 46,
+      "ap": 0.44753351870334057,
+      "positives": 15,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.23529411764705882,
+      "channels": 1
+     },
+     "oes_fixed": {
+      "tp": 15,
+      "fp": 46,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.44753351870334057,
+      "positives": 15,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.3947368421052631,
+      "channels": 1
+     }
+    },
+    "realAWSCloudwatch/ec2_cpu_utilization_53ea38.csv": {
+     "streamguard_diff": {
+      "tp": 1,
+      "fp": 1,
+      "fn": 7,
+      "tn": 52,
+      "ap": 0.23673686708618502,
+      "positives": 8,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.2,
+      "channels": 1
+     },
+     "streamguard_median": {
+      "tp": 0,
+      "fp": 2,
+      "fn": 8,
+      "tn": 51,
+      "ap": 0.19206050841389183,
+      "positives": 8,
+      "events": 1,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "streamguard_detrend": {
+      "tp": 1,
+      "fp": 2,
+      "fn": 7,
+      "tn": 51,
+      "ap": 0.17686908066413218,
+      "positives": 8,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.18181818181818182,
+      "channels": 1
+     },
+     "cusum": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 6,
+      "tn": 53,
+      "ap": 0.4343052780552781,
+      "positives": 8,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.4,
+      "channels": 1
+     },
+     "ewma": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 7,
+      "tn": 53,
+      "ap": 0.4124931927234559,
+      "positives": 8,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.2222222222222222,
+      "channels": 1
+     },
+     "zscore": {
+      "tp": 0,
+      "fp": 2,
+      "fn": 8,
+      "tn": 51,
+      "ap": 0.15389029236052454,
+      "positives": 8,
+      "events": 1,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "iforest": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 7,
+      "tn": 53,
+      "ap": 0.42136037236803237,
+      "positives": 8,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.2222222222222222,
+      "channels": 1
+     },
+     "sg_default": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 7,
+      "tn": 53,
+      "ap": 0.23673686708618502,
+      "positives": 8,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.2222222222222222,
+      "channels": 1
+     },
+     "oes_latch": {
+      "tp": 0,
+      "fp": 2,
+      "fn": 8,
+      "tn": 51,
+      "ap": 0.18862638678173274,
+      "positives": 8,
+      "events": 1,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "oes_fixed": {
+      "tp": 8,
+      "fp": 53,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.18862638678173274,
+      "positives": 8,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.23188405797101452,
+      "channels": 1
+     }
+    },
+    "realAWSCloudwatch/ec2_cpu_utilization_5f5533.csv": {
+     "streamguard_diff": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 6,
+      "tn": 54,
+      "ap": 0.36633271490414343,
+      "positives": 7,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.25,
+      "channels": 1
+     },
+     "streamguard_median": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 6,
+      "tn": 54,
+      "ap": 0.5370963327859879,
+      "positives": 7,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.25,
+      "channels": 1
+     },
+     "streamguard_detrend": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 6,
+      "tn": 54,
+      "ap": 0.32478049359278593,
+      "positives": 7,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.25,
+      "channels": 1
+     },
+     "cusum": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 6,
+      "tn": 54,
+      "ap": 0.44560889929742387,
+      "positives": 7,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.25,
+      "channels": 1
+     },
+     "ewma": {
+      "tp": 4,
+      "fp": 0,
+      "fn": 3,
+      "tn": 54,
+      "ap": 0.6489795918367347,
+      "positives": 7,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.7272727272727273,
+      "channels": 1
+     },
+     "zscore": {
+      "tp": 1,
+      "fp": 1,
+      "fn": 6,
+      "tn": 53,
+      "ap": 0.353935123833083,
+      "positives": 7,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.22222222222222224,
+      "channels": 1
+     },
+     "iforest": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 4,
+      "tn": 54,
+      "ap": 0.8006563329143974,
+      "positives": 7,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.6,
+      "channels": 1
+     },
+     "sg_default": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 6,
+      "tn": 54,
+      "ap": 0.36633271490414343,
+      "positives": 7,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.25,
+      "channels": 1
+     },
+     "oes_latch": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 6,
+      "tn": 54,
+      "ap": 0.617178699436764,
+      "positives": 7,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.25,
+      "channels": 1
+     },
+     "oes_fixed": {
+      "tp": 7,
+      "fp": 36,
+      "fn": 0,
+      "tn": 18,
+      "ap": 0.617178699436764,
+      "positives": 7,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.28,
+      "channels": 1
+     }
+    },
+    "realAWSCloudwatch/ec2_cpu_utilization_77c1ca.csv": {
+     "streamguard_diff": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 3,
+      "tn": 58,
+      "ap": 0.13861566484517304,
+      "positives": 3,
+      "events": 0,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "streamguard_median": {
+      "tp": 1,
+      "fp": 4,
+      "fn": 2,
+      "tn": 54,
+      "ap": 0.13553459119496855,
+      "positives": 3,
+      "events": 0,
+      "events_detected": 0,
+      "f1": 0.25,
+      "channels": 1
+     },
+     "streamguard_detrend": {
+      "tp": 0,
+      "fp": 1,
+      "fn": 3,
+      "tn": 57,
+      "ap": 0.07391884951206985,
+      "positives": 3,
+      "events": 0,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "cusum": {
+      "tp": 3,
+      "fp": 58,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.03315427124818622,
+      "positives": 3,
+      "events": 0,
+      "events_detected": 0,
+      "f1": 0.09375,
+      "channels": 1
+     },
+     "ewma": {
+      "tp": 2,
+      "fp": 7,
+      "fn": 1,
+      "tn": 51,
+      "ap": 0.16247987117552334,
+      "positives": 3,
+      "events": 0,
+      "events_detected": 0,
+      "f1": 0.3333333333333333,
+      "channels": 1
+     },
+     "zscore": {
+      "tp": 0,
+      "fp": 2,
+      "fn": 3,
+      "tn": 56,
+      "ap": 0.07321408095401903,
+      "positives": 3,
+      "events": 0,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "iforest": {
+      "tp": 0,
+      "fp": 9,
+      "fn": 3,
+      "tn": 49,
+      "ap": 0.07524420024420024,
+      "positives": 3,
+      "events": 0,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "sg_default": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 3,
+      "tn": 58,
+      "ap": 0.13861566484517304,
+      "positives": 3,
+      "events": 0,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "oes_latch": {
+      "tp": 1,
+      "fp": 7,
+      "fn": 2,
+      "tn": 51,
+      "ap": 0.1074074074074074,
+      "positives": 3,
+      "events": 0,
+      "events_detected": 0,
+      "f1": 0.18181818181818182,
+      "channels": 1
+     },
+     "oes_fixed": {
+      "tp": 3,
+      "fp": 58,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.1074074074074074,
+      "positives": 3,
+      "events": 0,
+      "events_detected": 0,
+      "f1": 0.09375,
+      "channels": 1
+     }
+    },
+    "realAWSCloudwatch/ec2_cpu_utilization_825cc2.csv": {
+     "streamguard_diff": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 61,
+      "ap": null,
+      "positives": 0,
+      "events": 0,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "streamguard_median": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 61,
+      "ap": null,
+      "positives": 0,
+      "events": 0,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "streamguard_detrend": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 61,
+      "ap": null,
+      "positives": 0,
+      "events": 0,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "cusum": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 61,
+      "ap": null,
+      "positives": 0,
+      "events": 0,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "ewma": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 61,
+      "ap": null,
+      "positives": 0,
+      "events": 0,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "zscore": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 61,
+      "ap": null,
+      "positives": 0,
+      "events": 0,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "iforest": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 61,
+      "ap": null,
+      "positives": 0,
+      "events": 0,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "sg_default": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 61,
+      "ap": null,
+      "positives": 0,
+      "events": 0,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "oes_latch": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 0,
+      "tn": 61,
+      "ap": null,
+      "positives": 0,
+      "events": 0,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "oes_fixed": {
+      "tp": 0,
+      "fp": 61,
+      "fn": 0,
+      "tn": 0,
+      "ap": null,
+      "positives": 0,
+      "events": 0,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     }
+    },
+    "realAWSCloudwatch/ec2_disk_write_bytes_1ef3de.csv": {
+     "streamguard_diff": {
+      "tp": 4,
+      "fp": 23,
+      "fn": 12,
+      "tn": 43,
+      "ap": 0.19257794840805392,
+      "positives": 16,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.18604651162790697,
+      "channels": 1
+     },
+     "streamguard_median": {
+      "tp": 4,
+      "fp": 23,
+      "fn": 12,
+      "tn": 43,
+      "ap": 0.19252161539097612,
+      "positives": 16,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.18604651162790697,
+      "channels": 1
+     },
+     "streamguard_detrend": {
+      "tp": 4,
+      "fp": 23,
+      "fn": 12,
+      "tn": 43,
+      "ap": 0.18497407116429904,
+      "positives": 16,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.18604651162790697,
+      "channels": 1
+     },
+     "cusum": {
+      "tp": 9,
+      "fp": 30,
+      "fn": 7,
+      "tn": 36,
+      "ap": 0.23082023514451344,
+      "positives": 16,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.32727272727272727,
+      "channels": 1
+     },
+     "ewma": {
+      "tp": 4,
+      "fp": 25,
+      "fn": 12,
+      "tn": 41,
+      "ap": 0.24710199428084192,
+      "positives": 16,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.17777777777777778,
+      "channels": 1
+     },
+     "zscore": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 15,
+      "tn": 66,
+      "ap": 0.40722742979120286,
+      "positives": 16,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.11764705882352941,
+      "channels": 1
+     },
+     "iforest": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 14,
+      "tn": 66,
+      "ap": 0.3096705519791065,
+      "positives": 16,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.2222222222222222,
+      "channels": 1
+     },
+     "sg_default": {
+      "tp": 4,
+      "fp": 23,
+      "fn": 12,
+      "tn": 43,
+      "ap": 0.19257794840805392,
+      "positives": 16,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.18604651162790697,
+      "channels": 1
+     },
+     "oes_latch": {
+      "tp": 4,
+      "fp": 23,
+      "fn": 12,
+      "tn": 43,
+      "ap": 0.19252161539097612,
+      "positives": 16,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.18604651162790697,
+      "channels": 1
+     },
+     "oes_fixed": {
+      "tp": 6,
+      "fp": 26,
+      "fn": 10,
+      "tn": 40,
+      "ap": 0.19252161539097612,
+      "positives": 16,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.25,
+      "channels": 1
+     }
+    },
+    "realAWSCloudwatch/ec2_network_in_5abac7.csv": {
+     "streamguard_diff": {
+      "tp": 8,
+      "fp": 17,
+      "fn": 9,
+      "tn": 48,
+      "ap": 0.3780156417360267,
+      "positives": 17,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.38095238095238104,
+      "channels": 1
+     },
+     "streamguard_median": {
+      "tp": 8,
+      "fp": 17,
+      "fn": 9,
+      "tn": 48,
+      "ap": 0.3713603581853537,
+      "positives": 17,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.38095238095238104,
+      "channels": 1
+     },
+     "streamguard_detrend": {
+      "tp": 8,
+      "fp": 17,
+      "fn": 9,
+      "tn": 48,
+      "ap": 0.3700701440469542,
+      "positives": 17,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.38095238095238104,
+      "channels": 1
+     },
+     "cusum": {
+      "tp": 17,
+      "fp": 65,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.14697125619624055,
+      "positives": 17,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.3434343434343434,
+      "channels": 1
+     },
+     "ewma": {
+      "tp": 2,
+      "fp": 4,
+      "fn": 15,
+      "tn": 61,
+      "ap": 0.4340157136146115,
+      "positives": 17,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.1739130434782609,
+      "channels": 1
+     },
+     "zscore": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 16,
+      "tn": 65,
+      "ap": 0.48758486852634497,
+      "positives": 17,
+      "events": 2,
+      "events_detected": 1,
+      "f1": 0.1111111111111111,
+      "channels": 1
+     },
+     "iforest": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 15,
+      "tn": 65,
+      "ap": 0.46211197071534477,
+      "positives": 17,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.21052631578947367,
+      "channels": 1
+     },
+     "sg_default": {
+      "tp": 5,
+      "fp": 8,
+      "fn": 12,
+      "tn": 57,
+      "ap": 0.3780156417360267,
+      "positives": 17,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.33333333333333337,
+      "channels": 1
+     },
+     "oes_latch": {
+      "tp": 8,
+      "fp": 17,
+      "fn": 9,
+      "tn": 48,
+      "ap": 0.3733744394705697,
+      "positives": 17,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.38095238095238104,
+      "channels": 1
+     },
+     "oes_fixed": {
+      "tp": 17,
+      "fp": 65,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.3733744394705697,
+      "positives": 17,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.3434343434343434,
+      "channels": 1
+     }
+    },
+    "realAWSCloudwatch/elb_request_count_8c0756.csv": {
+     "streamguard_diff": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 7,
+      "tn": 53,
+      "ap": 0.4288842454504267,
+      "positives": 8,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.2222222222222222,
+      "channels": 1
+     },
+     "streamguard_median": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 7,
+      "tn": 53,
+      "ap": 0.38887110394965413,
+      "positives": 8,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.2222222222222222,
+      "channels": 1
+     },
+     "streamguard_detrend": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 7,
+      "tn": 53,
+      "ap": 0.32262731481481477,
+      "positives": 8,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.2222222222222222,
+      "channels": 1
+     },
+     "cusum": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 7,
+      "tn": 53,
+      "ap": 0.356316378882094,
+      "positives": 8,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.2222222222222222,
+      "channels": 1
+     },
+     "ewma": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 7,
+      "tn": 53,
+      "ap": 0.39666370212027513,
+      "positives": 8,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.2222222222222222,
+      "channels": 1
+     },
+     "zscore": {
+      "tp": 1,
+      "fp": 2,
+      "fn": 7,
+      "tn": 51,
+      "ap": 0.2716291061879297,
+      "positives": 8,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.18181818181818182,
+      "channels": 1
+     },
+     "iforest": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 7,
+      "tn": 53,
+      "ap": 0.34268580012650224,
+      "positives": 8,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.2222222222222222,
+      "channels": 1
+     },
+     "sg_default": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 7,
+      "tn": 53,
+      "ap": 0.4288842454504267,
+      "positives": 8,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.2222222222222222,
+      "channels": 1
+     },
+     "oes_latch": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 7,
+      "tn": 53,
+      "ap": 0.35532955865272936,
+      "positives": 8,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.2222222222222222,
+      "channels": 1
+     },
+     "oes_fixed": {
+      "tp": 8,
+      "fp": 53,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.35532955865272936,
+      "positives": 8,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.23188405797101452,
+      "channels": 1
+     }
+    },
+    "realAWSCloudwatch/grok_asg_anomaly.csv": {
+     "streamguard_diff": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 5,
+      "tn": 73,
+      "ap": 0.43373366013071896,
+      "positives": 6,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.2857142857142857,
+      "channels": 1
+     },
+     "streamguard_median": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 3,
+      "tn": 73,
+      "ap": 0.5865079365079365,
+      "positives": 6,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.6666666666666666,
+      "channels": 1
+     },
+     "streamguard_detrend": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 5,
+      "tn": 73,
+      "ap": 0.3725308641975309,
+      "positives": 6,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.2857142857142857,
+      "channels": 1
+     },
+     "cusum": {
+      "tp": 6,
+      "fp": 73,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.1238841873324632,
+      "positives": 6,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.1411764705882353,
+      "channels": 1
+     },
+     "ewma": {
+      "tp": 3,
+      "fp": 6,
+      "fn": 3,
+      "tn": 67,
+      "ap": 0.501933656345421,
+      "positives": 6,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.4,
+      "channels": 1
+     },
+     "zscore": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 6,
+      "tn": 73,
+      "ap": 0.2915640780877039,
+      "positives": 6,
+      "events": 1,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "iforest": {
+      "tp": 3,
+      "fp": 8,
+      "fn": 3,
+      "tn": 65,
+      "ap": 0.43691007060572273,
+      "positives": 6,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.3529411764705882,
+      "channels": 1
+     },
+     "sg_default": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 5,
+      "tn": 73,
+      "ap": 0.43373366013071896,
+      "positives": 6,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.2857142857142857,
+      "channels": 1
+     },
+     "oes_latch": {
+      "tp": 3,
+      "fp": 2,
+      "fn": 3,
+      "tn": 71,
+      "ap": 0.5448412698412698,
+      "positives": 6,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.5454545454545454,
+      "channels": 1
+     },
+     "oes_fixed": {
+      "tp": 6,
+      "fp": 73,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.5448412698412698,
+      "positives": 6,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.1411764705882353,
+      "channels": 1
+     }
+    },
+    "realAWSCloudwatch/rds_cpu_utilization_cc0c53.csv": {
+     "streamguard_diff": {
+      "tp": 10,
+      "fp": 16,
+      "fn": 4,
+      "tn": 31,
+      "ap": 0.6581022766942138,
+      "positives": 14,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.5,
+      "channels": 1
+     },
+     "streamguard_median": {
+      "tp": 10,
+      "fp": 18,
+      "fn": 4,
+      "tn": 29,
+      "ap": 0.627287973505961,
+      "positives": 14,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.4761904761904762,
+      "channels": 1
+     },
+     "streamguard_detrend": {
+      "tp": 10,
+      "fp": 18,
+      "fn": 4,
+      "tn": 29,
+      "ap": 0.5949956626422216,
+      "positives": 14,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.4761904761904762,
+      "channels": 1
+     },
+     "cusum": {
+      "tp": 11,
+      "fp": 20,
+      "fn": 3,
+      "tn": 27,
+      "ap": 0.36402578428238613,
+      "positives": 14,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.48888888888888893,
+      "channels": 1
+     },
+     "ewma": {
+      "tp": 9,
+      "fp": 13,
+      "fn": 5,
+      "tn": 34,
+      "ap": 0.6585376210782505,
+      "positives": 14,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.5000000000000001,
+      "channels": 1
+     },
+     "zscore": {
+      "tp": 2,
+      "fp": 1,
+      "fn": 12,
+      "tn": 46,
+      "ap": 0.4699074717213352,
+      "positives": 14,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.23529411764705882,
+      "channels": 1
+     },
+     "iforest": {
+      "tp": 11,
+      "fp": 19,
+      "fn": 3,
+      "tn": 28,
+      "ap": 0.5860063800859947,
+      "positives": 14,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.5,
+      "channels": 1
+     },
+     "sg_default": {
+      "tp": 9,
+      "fp": 14,
+      "fn": 5,
+      "tn": 33,
+      "ap": 0.6581022766942138,
+      "positives": 14,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.4864864864864865,
+      "channels": 1
+     },
+     "oes_latch": {
+      "tp": 11,
+      "fp": 17,
+      "fn": 3,
+      "tn": 30,
+      "ap": 0.6830751152920185,
+      "positives": 14,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.5238095238095237,
+      "channels": 1
+     },
+     "oes_fixed": {
+      "tp": 14,
+      "fp": 47,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.6830751152920185,
+      "positives": 14,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.37333333333333335,
+      "channels": 1
+     }
+    },
+    "realAWSCloudwatch/rds_cpu_utilization_e47b3b.csv": {
+     "streamguard_diff": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 7,
+      "tn": 54,
+      "ap": 0.25086592845213534,
+      "positives": 7,
+      "events": 1,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "streamguard_median": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 7,
+      "tn": 54,
+      "ap": 0.42473876698014623,
+      "positives": 7,
+      "events": 1,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "streamguard_detrend": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 7,
+      "tn": 54,
+      "ap": 0.2569303848860499,
+      "positives": 7,
+      "events": 1,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "cusum": {
+      "tp": 3,
+      "fp": 41,
+      "fn": 4,
+      "tn": 13,
+      "ap": 0.09064022634225315,
+      "positives": 7,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.1176470588235294,
+      "channels": 1
+     },
+     "ewma": {
+      "tp": 3,
+      "fp": 3,
+      "fn": 4,
+      "tn": 51,
+      "ap": 0.4754685620324167,
+      "positives": 7,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.4615384615384615,
+      "channels": 1
+     },
+     "zscore": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 7,
+      "tn": 54,
+      "ap": 0.408858078419914,
+      "positives": 7,
+      "events": 1,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "iforest": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 4,
+      "tn": 54,
+      "ap": 0.5492216117216117,
+      "positives": 7,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.6,
+      "channels": 1
+     },
+     "sg_default": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 7,
+      "tn": 54,
+      "ap": 0.25086592845213534,
+      "positives": 7,
+      "events": 1,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "oes_latch": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 7,
+      "tn": 54,
+      "ap": 0.47271825396825395,
+      "positives": 7,
+      "events": 1,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "oes_fixed": {
+      "tp": 7,
+      "fp": 54,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.47271825396825395,
+      "positives": 7,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.2058823529411765,
+      "channels": 1
+     }
+    },
+    "realKnownCause/cpu_utilization_asg_misconfiguration.csv": {
+     "streamguard_diff": {
+      "tp": 1,
+      "fp": 1,
+      "fn": 46,
+      "tn": 451,
+      "ap": 0.11672956744156496,
+      "positives": 47,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.04081632653061224,
+      "channels": 1
+     },
+     "streamguard_median": {
+      "tp": 12,
+      "fp": 75,
+      "fn": 35,
+      "tn": 377,
+      "ap": 0.18851355076998233,
+      "positives": 47,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.17910447761194032,
+      "channels": 1
+     },
+     "streamguard_detrend": {
+      "tp": 3,
+      "fp": 16,
+      "fn": 44,
+      "tn": 436,
+      "ap": 0.10825348221885622,
+      "positives": 47,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.0909090909090909,
+      "channels": 1
+     },
+     "cusum": {
+      "tp": 47,
+      "fp": 452,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.9859250254936098,
+      "positives": 47,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.17216117216117216,
+      "channels": 1
+     },
+     "ewma": {
+      "tp": 25,
+      "fp": 77,
+      "fn": 22,
+      "tn": 375,
+      "ap": 0.31625417119757626,
+      "positives": 47,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.33557046979865773,
+      "channels": 1
+     },
+     "zscore": {
+      "tp": 0,
+      "fp": 1,
+      "fn": 47,
+      "tn": 451,
+      "ap": 0.05684577317930854,
+      "positives": 47,
+      "events": 1,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "iforest": {
+      "tp": 10,
+      "fp": 0,
+      "fn": 37,
+      "tn": 452,
+      "ap": 0.813559751501576,
+      "positives": 47,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.3508771929824561,
+      "channels": 1
+     },
+     "sg_default": {
+      "tp": 1,
+      "fp": 1,
+      "fn": 46,
+      "tn": 451,
+      "ap": 0.11672956744156496,
+      "positives": 47,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.04081632653061224,
+      "channels": 1
+     },
+     "oes_latch": {
+      "tp": 15,
+      "fp": 74,
+      "fn": 32,
+      "tn": 378,
+      "ap": 0.2491134388221116,
+      "positives": 47,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.22058823529411764,
+      "channels": 1
+     },
+     "oes_fixed": {
+      "tp": 47,
+      "fp": 452,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.2491134388221116,
+      "positives": 47,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.17216117216117216,
+      "channels": 1
+     }
+    },
+    "realKnownCause/rogue_agent_key_updown.csv": {
+     "streamguard_diff": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 19,
+      "tn": 82,
+      "ap": 0.2406067529829906,
+      "positives": 19,
+      "events": 2,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "streamguard_median": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 19,
+      "tn": 82,
+      "ap": 0.24366568235770944,
+      "positives": 19,
+      "events": 2,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "streamguard_detrend": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 19,
+      "tn": 82,
+      "ap": 0.24491881518978964,
+      "positives": 19,
+      "events": 2,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "cusum": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 19,
+      "tn": 82,
+      "ap": 0.16090837636209152,
+      "positives": 19,
+      "events": 2,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "ewma": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 19,
+      "tn": 82,
+      "ap": 0.25272625896895745,
+      "positives": 19,
+      "events": 2,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "zscore": {
+      "tp": 0,
+      "fp": 4,
+      "fn": 19,
+      "tn": 78,
+      "ap": 0.2445406101231595,
+      "positives": 19,
+      "events": 2,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "iforest": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 19,
+      "tn": 82,
+      "ap": 0.19605567575423133,
+      "positives": 19,
+      "events": 2,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "sg_default": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 19,
+      "tn": 82,
+      "ap": 0.2406067529829906,
+      "positives": 19,
+      "events": 2,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "oes_latch": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 19,
+      "tn": 82,
+      "ap": 0.24366568235770944,
+      "positives": 19,
+      "events": 2,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "oes_fixed": {
+      "tp": 7,
+      "fp": 28,
+      "fn": 12,
+      "tn": 54,
+      "ap": 0.24366568235770944,
+      "positives": 19,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.25925925925925924,
+      "channels": 1
+     }
+    },
+    "realTweets/Twitter_volume_CVS.csv": {
+     "streamguard_diff": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 29,
+      "tn": 399,
+      "ap": 0.16893043484349213,
+      "positives": 31,
+      "events": 2,
+      "events_detected": 1,
+      "f1": 0.12121212121212122,
+      "channels": 1
+     },
+     "streamguard_median": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 29,
+      "tn": 399,
+      "ap": 0.197077423490909,
+      "positives": 31,
+      "events": 2,
+      "events_detected": 1,
+      "f1": 0.12121212121212122,
+      "channels": 1
+     },
+     "streamguard_detrend": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 29,
+      "tn": 399,
+      "ap": 0.17091080916512136,
+      "positives": 31,
+      "events": 2,
+      "events_detected": 1,
+      "f1": 0.12121212121212122,
+      "channels": 1
+     },
+     "cusum": {
+      "tp": 13,
+      "fp": 17,
+      "fn": 18,
+      "tn": 382,
+      "ap": 0.4440218643682706,
+      "positives": 31,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.4262295081967213,
+      "channels": 1
+     },
+     "ewma": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 28,
+      "tn": 399,
+      "ap": 0.22564820866060728,
+      "positives": 31,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.17647058823529413,
+      "channels": 1
+     },
+     "zscore": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 30,
+      "tn": 399,
+      "ap": 0.11800806241190281,
+      "positives": 31,
+      "events": 2,
+      "events_detected": 1,
+      "f1": 0.0625,
+      "channels": 1
+     },
+     "iforest": {
+      "tp": 3,
+      "fp": 3,
+      "fn": 28,
+      "tn": 396,
+      "ap": 0.1856903323231605,
+      "positives": 31,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.16216216216216214,
+      "channels": 1
+     },
+     "sg_default": {
+      "tp": 0,
+      "fp": 0,
+      "fn": 31,
+      "tn": 399,
+      "ap": 0.16893043484349213,
+      "positives": 31,
+      "events": 2,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "oes_latch": {
+      "tp": 2,
+      "fp": 0,
+      "fn": 29,
+      "tn": 399,
+      "ap": 0.200501666452352,
+      "positives": 31,
+      "events": 2,
+      "events_detected": 1,
+      "f1": 0.12121212121212122,
+      "channels": 1
+     },
+     "oes_fixed": {
+      "tp": 31,
+      "fp": 389,
+      "fn": 0,
+      "tn": 10,
+      "ap": 0.200501666452352,
+      "positives": 31,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.13747228381374724,
+      "channels": 1
+     }
+    },
+    "realTweets/Twitter_volume_KO.csv": {
+     "streamguard_diff": {
+      "tp": 4,
+      "fp": 4,
+      "fn": 49,
+      "tn": 373,
+      "ap": 0.19131960165419254,
+      "positives": 53,
+      "events": 3,
+      "events_detected": 3,
+      "f1": 0.13114754098360656,
+      "channels": 1
+     },
+     "streamguard_median": {
+      "tp": 4,
+      "fp": 4,
+      "fn": 49,
+      "tn": 373,
+      "ap": 0.20946451916154735,
+      "positives": 53,
+      "events": 3,
+      "events_detected": 3,
+      "f1": 0.13114754098360656,
+      "channels": 1
+     },
+     "streamguard_detrend": {
+      "tp": 3,
+      "fp": 4,
+      "fn": 50,
+      "tn": 373,
+      "ap": 0.19151742923445905,
+      "positives": 53,
+      "events": 3,
+      "events_detected": 2,
+      "f1": 0.1,
+      "channels": 1
+     },
+     "cusum": {
+      "tp": 21,
+      "fp": 20,
+      "fn": 32,
+      "tn": 357,
+      "ap": 0.4895553378214883,
+      "positives": 53,
+      "events": 3,
+      "events_detected": 3,
+      "f1": 0.44680851063829785,
+      "channels": 1
+     },
+     "ewma": {
+      "tp": 6,
+      "fp": 8,
+      "fn": 47,
+      "tn": 369,
+      "ap": 0.22754439264168308,
+      "positives": 53,
+      "events": 3,
+      "events_detected": 3,
+      "f1": 0.1791044776119403,
+      "channels": 1
+     },
+     "zscore": {
+      "tp": 2,
+      "fp": 4,
+      "fn": 51,
+      "tn": 373,
+      "ap": 0.13943313821177,
+      "positives": 53,
+      "events": 3,
+      "events_detected": 2,
+      "f1": 0.06779661016949153,
+      "channels": 1
+     },
+     "iforest": {
+      "tp": 4,
+      "fp": 2,
+      "fn": 49,
+      "tn": 375,
+      "ap": 0.23389520359191746,
+      "positives": 53,
+      "events": 3,
+      "events_detected": 2,
+      "f1": 0.13559322033898305,
+      "channels": 1
+     },
+     "sg_default": {
+      "tp": 3,
+      "fp": 0,
+      "fn": 50,
+      "tn": 377,
+      "ap": 0.19131960165419254,
+      "positives": 53,
+      "events": 3,
+      "events_detected": 2,
+      "f1": 0.10714285714285715,
+      "channels": 1
+     },
+     "oes_latch": {
+      "tp": 4,
+      "fp": 4,
+      "fn": 49,
+      "tn": 373,
+      "ap": 0.2119584234310032,
+      "positives": 53,
+      "events": 3,
+      "events_detected": 3,
+      "f1": 0.13114754098360656,
+      "channels": 1
+     },
+     "oes_fixed": {
+      "tp": 53,
+      "fp": 377,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.2119584234310032,
+      "positives": 53,
+      "events": 3,
+      "events_detected": 3,
+      "f1": 0.21946169772256732,
+      "channels": 1
+     }
+    },
+    "realTweets/Twitter_volume_PFE.csv": {
+     "streamguard_diff": {
+      "tp": 2,
+      "fp": 8,
+      "fn": 24,
+      "tn": 396,
+      "ap": 0.16183522670625233,
+      "positives": 26,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.1111111111111111,
+      "channels": 1
+     },
+     "streamguard_median": {
+      "tp": 2,
+      "fp": 8,
+      "fn": 24,
+      "tn": 396,
+      "ap": 0.18348672131570565,
+      "positives": 26,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.1111111111111111,
+      "channels": 1
+     },
+     "streamguard_detrend": {
+      "tp": 2,
+      "fp": 7,
+      "fn": 24,
+      "tn": 397,
+      "ap": 0.15706707962550984,
+      "positives": 26,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.1142857142857143,
+      "channels": 1
+     },
+     "cusum": {
+      "tp": 0,
+      "fp": 3,
+      "fn": 26,
+      "tn": 401,
+      "ap": 0.14670492668162632,
+      "positives": 26,
+      "events": 2,
+      "events_detected": 0,
+      "f1": 0.0,
+      "channels": 1
+     },
+     "ewma": {
+      "tp": 1,
+      "fp": 0,
+      "fn": 25,
+      "tn": 404,
+      "ap": 0.150995136469435,
+      "positives": 26,
+      "events": 2,
+      "events_detected": 1,
+      "f1": 0.07407407407407407,
+      "channels": 1
+     },
+     "zscore": {
+      "tp": 1,
+      "fp": 4,
+      "fn": 25,
+      "tn": 400,
+      "ap": 0.0866325392426679,
+      "positives": 26,
+      "events": 2,
+      "events_detected": 1,
+      "f1": 0.06451612903225806,
+      "channels": 1
+     },
+     "iforest": {
+      "tp": 1,
+      "fp": 1,
+      "fn": 25,
+      "tn": 403,
+      "ap": 0.16224158625464502,
+      "positives": 26,
+      "events": 2,
+      "events_detected": 1,
+      "f1": 0.07142857142857144,
+      "channels": 1
+     },
+     "sg_default": {
+      "tp": 2,
+      "fp": 8,
+      "fn": 24,
+      "tn": 396,
+      "ap": 0.16183522670625233,
+      "positives": 26,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.1111111111111111,
+      "channels": 1
+     },
+     "oes_latch": {
+      "tp": 2,
+      "fp": 7,
+      "fn": 24,
+      "tn": 397,
+      "ap": 0.17923352241885285,
+      "positives": 26,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.1142857142857143,
+      "channels": 1
+     },
+     "oes_fixed": {
+      "tp": 26,
+      "fp": 404,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.17923352241885285,
+      "positives": 26,
+      "events": 2,
+      "events_detected": 2,
+      "f1": 0.11403508771929825,
+      "channels": 1
+     }
+    }
+   }
+  },
+  "smd": {
+   "series_total": 28,
+   "excluded_short": [],
+   "tune": [
+    "machine-1-6",
+    "machine-1-7",
+    "machine-1-8",
+    "machine-2-2",
+    "machine-2-3",
+    "machine-2-9",
+    "machine-3-1",
+    "machine-3-10",
+    "machine-3-11",
+    "machine-3-2",
+    "machine-3-4",
+    "machine-3-5",
+    "machine-3-6",
+    "machine-3-9"
+   ],
+   "test": [
+    "machine-1-1",
+    "machine-1-2",
+    "machine-1-3",
+    "machine-1-4",
+    "machine-1-5",
+    "machine-2-1",
+    "machine-2-4",
+    "machine-2-5",
+    "machine-2-6",
+    "machine-2-7",
+    "machine-2-8",
+    "machine-3-3",
+    "machine-3-7",
+    "machine-3-8"
+   ],
+   "channels_total": 1064,
+   "channels_constant_in_warmup": 225,
+   "series_with_warmup_labels": 16,
+   "test_positive_blocks": 529,
+   "test_eval_blocks": 10071,
+   "tuning_pooled_f1": {
+    "StreamGuard diff (mode=diff) q=0.99": 0.18527838943063857,
+    "StreamGuard diff (mode=diff) q=0.995": 0.19338760591460377,
+    "StreamGuard diff (mode=diff) q=0.999": 0.19835277968428278,
+    "StreamGuard median (mode=median) q=0.99": 0.18032050322000898,
+    "StreamGuard median (mode=median) q=0.995": 0.1838087895142637,
+    "StreamGuard median (mode=median) q=0.999": 0.1862729700015706,
+    "StreamGuard detrend (mode=detrend) q=0.99": 0.18642708166212094,
+    "StreamGuard detrend (mode=detrend) q=0.995": 0.19411160561451557,
+    "StreamGuard detrend (mode=detrend) q=0.999": 0.19833539932707633,
+    "CUSUM (k=0.5) q=0.99": 0.12191315523730838,
+    "CUSUM (k=0.5) q=0.995": 0.12191315523730838,
+    "CUSUM (k=0.5) q=0.999": 0.12191315523730838,
+    "CUSUM (k=1.0) q=0.99": 0.12223858615611191,
+    "CUSUM (k=1.0) q=0.995": 0.12223858615611191,
+    "CUSUM (k=1.0) q=0.999": 0.12223858615611191,
+    "CUSUM (k=2.0) q=0.99": 0.12280377288699831,
+    "CUSUM (k=2.0) q=0.995": 0.12282648908620052,
+    "CUSUM (k=2.0) q=0.999": 0.12286057914700714,
+    "EWMA chart (lam=0.1) q=0.99": 0.17141254032823677,
+    "EWMA chart (lam=0.1) q=0.995": 0.17408848537253208,
+    "EWMA chart (lam=0.1) q=0.999": 0.17690273288275052,
+    "EWMA chart (lam=0.2) q=0.99": 0.17634220864251418,
+    "EWMA chart (lam=0.2) q=0.995": 0.18086382723455308,
+    "EWMA chart (lam=0.2) q=0.999": 0.1831758610179823,
+    "EWMA chart (lam=0.3) q=0.99": 0.17685685101415438,
+    "EWMA chart (lam=0.3) q=0.995": 0.17921146953405015,
+    "EWMA chart (lam=0.3) q=0.999": 0.18298653610771115,
+    "Rolling z-score (window=64) q=0.99": 0.17288706958824945,
+    "Rolling z-score (window=64) q=0.995": 0.17716226809511368,
+    "Rolling z-score (window=64) q=0.999": 0.17956485816579457,
+    "Rolling z-score (window=288) q=0.99": 0.17167600611309222,
+    "Rolling z-score (window=288) q=0.995": 0.16985253959584928,
+    "Rolling z-score (window=288) q=0.999": 0.16936629724353508,
+    "Isolation Forest q=0.99": 0.18235846105724116,
+    "Isolation Forest q=0.995": 0.18862920603348252,
+    "Isolation Forest q=0.999": 0.1928374655647383,
+    "StreamGuard default (untuned) (mode=diff) q=0.999": 0.19835277968428278,
+    "oes512q-latch v2 config (q=0.99) q=0.99": 0.17684887459807072,
+    "oes512q-latch fixed tau=0.50 q=None": 0.12186840414793063
+   },
+   "results": {
+    "streamguard_diff": {
+     "setting": "StreamGuard diff (mode=diff)",
+     "q": 0.999,
+     "tune_f1": 0.19835277968428278,
+     "test": {
+      "tp": 466,
+      "fp": 3932,
+      "fn": 63,
+      "tn": 5610,
+      "precision": 0.10595725329695316,
+      "recall": 0.8809073724007561,
+      "f1": 0.18916176172112845,
+      "false_latch_rate": 0.4120729406832949,
+      "mean_ap": 0.5073750324998482,
+      "mean_f1": 0.21177179971739143,
+      "events": 160,
+      "event_recall": 0.975,
+      "median_delay_blocks": 0.0
+     }
+    },
+    "streamguard_median": {
+     "setting": "StreamGuard median (mode=median)",
+     "q": 0.999,
+     "tune_f1": 0.1862729700015706,
+     "test": {
+      "tp": 475,
+      "fp": 4004,
+      "fn": 54,
+      "tn": 5538,
+      "precision": 0.10605045769144898,
+      "recall": 0.8979206049149339,
+      "f1": 0.18969648562300317,
+      "false_latch_rate": 0.4196185286103542,
+      "mean_ap": 0.4975568918750786,
+      "mean_f1": 0.20367088011349285,
+      "events": 160,
+      "event_recall": 0.975,
+      "median_delay_blocks": 0.0
+     }
+    },
+    "streamguard_detrend": {
+     "setting": "StreamGuard detrend (mode=detrend)",
+     "q": 0.999,
+     "tune_f1": 0.19833539932707633,
+     "test": {
+      "tp": 469,
+      "fp": 3617,
+      "fn": 60,
+      "tn": 5925,
+      "precision": 0.11478218306412138,
+      "recall": 0.8865784499054821,
+      "f1": 0.20325027085590466,
+      "false_latch_rate": 0.3790609935024104,
+      "mean_ap": 0.5113285405213096,
+      "mean_f1": 0.22771526337514178,
+      "events": 160,
+      "event_recall": 0.975,
+      "median_delay_blocks": 0.0
+     }
+    },
+    "cusum": {
+     "setting": "CUSUM (k=2.0)",
+     "q": 0.999,
+     "tune_f1": 0.12286057914700714,
+     "test": {
+      "tp": 529,
+      "fp": 9287,
+      "fn": 0,
+      "tn": 255,
+      "precision": 0.05389160554197229,
+      "recall": 1.0,
+      "f1": 0.10227162880618657,
+      "false_latch_rate": 0.9732760427583316,
+      "mean_ap": 0.21719242158834587,
+      "mean_f1": 0.1008384995650273,
+      "events": 160,
+      "event_recall": 1.0,
+      "median_delay_blocks": 0.0
+     }
+    },
+    "ewma": {
+     "setting": "EWMA chart (lam=0.2)",
+     "q": 0.999,
+     "tune_f1": 0.1831758610179823,
+     "test": {
+      "tp": 485,
+      "fp": 4043,
+      "fn": 44,
+      "tn": 5499,
+      "precision": 0.1071113074204947,
+      "recall": 0.9168241965973535,
+      "f1": 0.1918133280601147,
+      "false_latch_rate": 0.42370572207084467,
+      "mean_ap": 0.4956508292266502,
+      "mean_f1": 0.20838081277540582,
+      "events": 160,
+      "event_recall": 0.95,
+      "median_delay_blocks": 0.0
+     }
+    },
+    "zscore": {
+     "setting": "Rolling z-score (window=64)",
+     "q": 0.999,
+     "tune_f1": 0.17956485816579457,
+     "test": {
+      "tp": 313,
+      "fp": 3258,
+      "fn": 216,
+      "tn": 6284,
+      "precision": 0.08765051806216746,
+      "recall": 0.5916824196597353,
+      "f1": 0.1526829268292683,
+      "false_latch_rate": 0.3414378536994341,
+      "mean_ap": 0.17974905761599894,
+      "mean_f1": 0.15920946445281964,
+      "events": 160,
+      "event_recall": 0.925,
+      "median_delay_blocks": 0.0
+     }
+    },
+    "iforest": {
+     "setting": "Isolation Forest",
+     "q": 0.999,
+     "tune_f1": 0.1928374655647383,
+     "test": {
+      "tp": 388,
+      "fp": 3414,
+      "fn": 141,
+      "tn": 6128,
+      "precision": 0.1020515518148343,
+      "recall": 0.7334593572778828,
+      "f1": 0.17917340106211038,
+      "false_latch_rate": 0.35778662754139595,
+      "mean_ap": 0.34494756983707126,
+      "mean_f1": 0.1841116980739704,
+      "events": 160,
+      "event_recall": 0.69375,
+      "median_delay_blocks": 0.0
+     }
+    },
+    "sg_default": {
+     "setting": "StreamGuard default (untuned) (mode=diff)",
+     "q": 0.999,
+     "tune_f1": 0.19835277968428278,
+     "test": {
+      "tp": 466,
+      "fp": 3932,
+      "fn": 63,
+      "tn": 5610,
+      "precision": 0.10595725329695316,
+      "recall": 0.8809073724007561,
+      "f1": 0.18916176172112845,
+      "false_latch_rate": 0.4120729406832949,
+      "mean_ap": 0.5073750324998482,
+      "mean_f1": 0.21177179971739143,
+      "events": 160,
+      "event_recall": 0.975,
+      "median_delay_blocks": 0.0
+     }
+    },
+    "oes_latch": {
+     "setting": "oes512q-latch v2 config (q=0.99)",
+     "q": 0.99,
+     "tune_f1": 0.17684887459807072,
+     "test": {
+      "tp": 500,
+      "fp": 4543,
+      "fn": 29,
+      "tn": 4999,
+      "precision": 0.099147332936744,
+      "recall": 0.945179584120983,
+      "f1": 0.17946877243359657,
+      "false_latch_rate": 0.47610563823097884,
+      "mean_ap": 0.5187911227222941,
+      "mean_f1": 0.1896571727319932,
+      "events": 160,
+      "event_recall": 0.99375,
+      "median_delay_blocks": 0.0
+     }
+    },
+    "oes_fixed": {
+     "setting": "oes512q-latch fixed tau=0.50",
+     "q": null,
+     "tune_f1": 0.12186840414793063,
+     "test": {
+      "tp": 529,
+      "fp": 9542,
+      "fn": 0,
+      "tn": 0,
+      "precision": 0.052527057888988184,
+      "recall": 1.0,
+      "f1": 0.09981132075471698,
+      "false_latch_rate": 1.0,
+      "mean_ap": 0.5214537213364024,
+      "mean_f1": 0.09824737223049854,
+      "events": 160,
+      "event_recall": 1.0,
+      "median_delay_blocks": 0.0
+     }
+    }
+   },
+   "best_baseline": "ewma",
+   "significance_vs_best_baseline": {
+    "sg_default": {
+     "f1": {
+      "n": 14,
+      "mean_diff": 0.003390986941985675,
+      "ci95": [
+       -0.021151426990116646,
+       0.027094554799117106
+      ],
+      "wilcoxon_p": 0.8077392578125,
+      "wins": 8,
+      "losses": 6
+     },
+     "ap": {
+      "n": 14,
+      "mean_diff": 0.011724203273198036,
+      "ci95": [
+       -0.04857549028301476,
+       0.06993172379064082
+      ],
+      "wilcoxon_p": 0.71484375,
+      "wins": 8,
+      "losses": 6
+     }
+    },
+    "streamguard_diff": {
+     "f1": {
+      "n": 14,
+      "mean_diff": 0.003390986941985675,
+      "ci95": [
+       -0.021151426990116646,
+       0.027094554799117106
+      ],
+      "wilcoxon_p": 0.8077392578125,
+      "wins": 8,
+      "losses": 6
+     },
+     "ap": {
+      "n": 14,
+      "mean_diff": 0.011724203273198036,
+      "ci95": [
+       -0.04857549028301476,
+       0.06993172379064082
+      ],
+      "wilcoxon_p": 0.71484375,
+      "wins": 8,
+      "losses": 6
+     }
+    },
+    "streamguard_median": {
+     "f1": {
+      "n": 14,
+      "mean_diff": -0.004709932661912907,
+      "ci95": [
+       -0.029489786430166295,
+       0.019874650613804157
+      ],
+      "wilcoxon_p": 0.855224609375,
+      "wins": 7,
+      "losses": 7
+     },
+     "ap": {
+      "n": 14,
+      "mean_diff": 0.0019060626484285173,
+      "ci95": [
+       -0.033550564537767606,
+       0.03679971863801419
+      ],
+      "wilcoxon_p": 0.916511907863894,
+      "wins": 6,
+      "losses": 7
+     }
+    },
+    "streamguard_detrend": {
+     "f1": {
+      "n": 14,
+      "mean_diff": 0.019334450599735993,
+      "ci95": [
+       -0.010155332160283453,
+       0.04956160238806734
+      ],
+      "wilcoxon_p": 0.2412109375,
+      "wins": 8,
+      "losses": 6
+     },
+     "ap": {
+      "n": 14,
+      "mean_diff": 0.01567771129465947,
+      "ci95": [
+       -0.042648170800324285,
+       0.07011509001648046
+      ],
+      "wilcoxon_p": 0.625732421875,
+      "wins": 8,
+      "losses": 6
+     }
+    }
+   },
+   "throughput_scoring": {
+    "streamguard_diff": {
+     "blocks_x_channels": 331652,
+     "seconds": 4.044229063903913,
+     "per_s": 82006.23524520513
+    },
+    "streamguard_median": {
+     "blocks_x_channels": 331652,
+     "seconds": 6.868498855037615,
+     "per_s": 48285.95112260286
+    },
+    "streamguard_detrend": {
+     "blocks_x_channels": 331652,
+     "seconds": 5.330893773119897,
+     "per_s": 62213.207412291245
+    },
+    "cusum": {
+     "blocks_x_channels": 331652,
+     "seconds": 2.3603345850133337,
+     "per_s": 140510.58782334728
+    },
+    "ewma": {
+     "blocks_x_channels": 331652,
+     "seconds": 1.18124260508921,
+     "per_s": 280765.35554265155
+    },
+    "zscore": {
+     "blocks_x_channels": 331652,
+     "seconds": 0.34088677185354754,
+     "per_s": 972909.5623061754
+    },
+    "iforest": {
+     "blocks_x_channels": 331652,
+     "seconds": 27.0568273490062,
+     "per_s": 12257.608614713714
+    },
+    "sg_default": {
+     "blocks_x_channels": 331652,
+     "seconds": 3.9908566889935173,
+     "per_s": 83102.95905003838
+    },
+    "oes_latch": {
+     "blocks_x_channels": 331652,
+     "seconds": 1.0649008870241232,
+     "per_s": 311439.3123728209
+    },
+    "oes_fixed": {
+     "blocks_x_channels": 331652,
+     "seconds": 1.0696821679593995,
+     "per_s": 310047.23639796907
+    }
+   },
+   "per_series_test": {
+    "machine-1-1": {
+     "streamguard_diff": {
+      "tp": 82,
+      "fp": 233,
+      "fn": 9,
+      "tn": 500,
+      "ap": 0.7112405770816513,
+      "positives": 91,
+      "events": 8,
+      "events_detected": 8,
+      "f1": 0.4039408866995074,
+      "channels": 30
+     },
+     "streamguard_median": {
+      "tp": 90,
+      "fp": 293,
+      "fn": 1,
+      "tn": 440,
+      "ap": 0.6608746653804327,
+      "positives": 91,
+      "events": 8,
+      "events_detected": 8,
+      "f1": 0.37974683544303794,
+      "channels": 30
+     },
+     "streamguard_detrend": {
+      "tp": 85,
+      "fp": 217,
+      "fn": 6,
+      "tn": 516,
+      "ap": 0.6932659128699908,
+      "positives": 91,
+      "events": 8,
+      "events_detected": 8,
+      "f1": 0.4325699745547073,
+      "channels": 30
+     },
+     "cusum": {
+      "tp": 91,
+      "fp": 633,
+      "fn": 0,
+      "tn": 100,
+      "ap": 0.2830039112354956,
+      "positives": 91,
+      "events": 8,
+      "events_detected": 8,
+      "f1": 0.22331288343558287,
+      "channels": 30
+     },
+     "ewma": {
+      "tp": 91,
+      "fp": 410,
+      "fn": 0,
+      "tn": 323,
+      "ap": 0.639329076046837,
+      "positives": 91,
+      "events": 8,
+      "events_detected": 8,
+      "f1": 0.30743243243243246,
+      "channels": 30
+     },
+     "zscore": {
+      "tp": 49,
+      "fp": 145,
+      "fn": 42,
+      "tn": 588,
+      "ap": 0.2929898102847244,
+      "positives": 91,
+      "events": 8,
+      "events_detected": 8,
+      "f1": 0.343859649122807,
+      "channels": 30
+     },
+     "iforest": {
+      "tp": 84,
+      "fp": 341,
+      "fn": 7,
+      "tn": 392,
+      "ap": 0.7206268685069248,
+      "positives": 91,
+      "events": 8,
+      "events_detected": 5,
+      "f1": 0.32558139534883723,
+      "channels": 30
+     },
+     "sg_default": {
+      "tp": 82,
+      "fp": 233,
+      "fn": 9,
+      "tn": 500,
+      "ap": 0.7112405770816513,
+      "positives": 91,
+      "events": 8,
+      "events_detected": 8,
+      "f1": 0.4039408866995074,
+      "channels": 30
+     },
+     "oes_latch": {
+      "tp": 91,
+      "fp": 400,
+      "fn": 0,
+      "tn": 333,
+      "ap": 0.629362686076253,
+      "positives": 91,
+      "events": 8,
+      "events_detected": 8,
+      "f1": 0.3127147766323024,
+      "channels": 30
+     },
+     "oes_fixed": {
+      "tp": 91,
+      "fp": 733,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.7356253717732102,
+      "positives": 91,
+      "events": 8,
+      "events_detected": 8,
+      "f1": 0.19890710382513663,
+      "channels": 30
+     }
+    },
+    "machine-1-2": {
+     "streamguard_diff": {
+      "tp": 26,
+      "fp": 294,
+      "fn": 1,
+      "tn": 354,
+      "ap": 0.10054615892437348,
+      "positives": 27,
+      "events": 10,
+      "events_detected": 10,
+      "f1": 0.14985590778097985,
+      "channels": 32
+     },
+     "streamguard_median": {
+      "tp": 25,
+      "fp": 276,
+      "fn": 2,
+      "tn": 372,
+      "ap": 0.17253375239460905,
+      "positives": 27,
+      "events": 10,
+      "events_detected": 10,
+      "f1": 0.1524390243902439,
+      "channels": 32
+     },
+     "streamguard_detrend": {
+      "tp": 25,
+      "fp": 277,
+      "fn": 2,
+      "tn": 371,
+      "ap": 0.10887432199270416,
+      "positives": 27,
+      "events": 10,
+      "events_detected": 9,
+      "f1": 0.1519756838905775,
+      "channels": 32
+     },
+     "cusum": {
+      "tp": 27,
+      "fp": 648,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.1529762165974884,
+      "positives": 27,
+      "events": 10,
+      "events_detected": 10,
+      "f1": 0.07692307692307693,
+      "channels": 32
+     },
+     "ewma": {
+      "tp": 26,
+      "fp": 284,
+      "fn": 1,
+      "tn": 364,
+      "ap": 0.2008962318658216,
+      "positives": 27,
+      "events": 10,
+      "events_detected": 10,
+      "f1": 0.1543026706231454,
+      "channels": 32
+     },
+     "zscore": {
+      "tp": 19,
+      "fp": 285,
+      "fn": 8,
+      "tn": 363,
+      "ap": 0.0777113734903635,
+      "positives": 27,
+      "events": 10,
+      "events_detected": 8,
+      "f1": 0.1148036253776435,
+      "channels": 32
+     },
+     "iforest": {
+      "tp": 26,
+      "fp": 421,
+      "fn": 1,
+      "tn": 227,
+      "ap": 0.3061136887316127,
+      "positives": 27,
+      "events": 10,
+      "events_detected": 10,
+      "f1": 0.10970464135021095,
+      "channels": 32
+     },
+     "sg_default": {
+      "tp": 26,
+      "fp": 294,
+      "fn": 1,
+      "tn": 354,
+      "ap": 0.10054615892437348,
+      "positives": 27,
+      "events": 10,
+      "events_detected": 10,
+      "f1": 0.14985590778097985,
+      "channels": 32
+     },
+     "oes_latch": {
+      "tp": 27,
+      "fp": 300,
+      "fn": 0,
+      "tn": 348,
+      "ap": 0.18369005255460363,
+      "positives": 27,
+      "events": 10,
+      "events_detected": 10,
+      "f1": 0.15254237288135594,
+      "channels": 32
+     },
+     "oes_fixed": {
+      "tp": 27,
+      "fp": 648,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.34910683178841095,
+      "positives": 27,
+      "events": 10,
+      "events_detected": 10,
+      "f1": 0.07692307692307693,
+      "channels": 32
+     }
+    },
+    "machine-1-3": {
+     "streamguard_diff": {
+      "tp": 26,
+      "fp": 113,
+      "fn": 8,
+      "tn": 528,
+      "ap": 0.373337892174276,
+      "positives": 34,
+      "events": 10,
+      "events_detected": 10,
+      "f1": 0.300578034682081,
+      "channels": 30
+     },
+     "streamguard_median": {
+      "tp": 23,
+      "fp": 119,
+      "fn": 11,
+      "tn": 522,
+      "ap": 0.3181277269808941,
+      "positives": 34,
+      "events": 10,
+      "events_detected": 10,
+      "f1": 0.2613636363636364,
+      "channels": 30
+     },
+     "streamguard_detrend": {
+      "tp": 26,
+      "fp": 60,
+      "fn": 8,
+      "tn": 581,
+      "ap": 0.39478391617043707,
+      "positives": 34,
+      "events": 10,
+      "events_detected": 10,
+      "f1": 0.4333333333333333,
+      "channels": 30
+     },
+     "cusum": {
+      "tp": 34,
+      "fp": 641,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.16639796074427776,
+      "positives": 34,
+      "events": 10,
+      "events_detected": 10,
+      "f1": 0.09590973201692525,
+      "channels": 30
+     },
+     "ewma": {
+      "tp": 30,
+      "fp": 123,
+      "fn": 4,
+      "tn": 518,
+      "ap": 0.35274790757010954,
+      "positives": 34,
+      "events": 10,
+      "events_detected": 9,
+      "f1": 0.32085561497326204,
+      "channels": 30
+     },
+     "zscore": {
+      "tp": 22,
+      "fp": 261,
+      "fn": 12,
+      "tn": 380,
+      "ap": 0.09295832755600798,
+      "positives": 34,
+      "events": 10,
+      "events_detected": 10,
+      "f1": 0.138801261829653,
+      "channels": 30
+     },
+     "iforest": {
+      "tp": 22,
+      "fp": 103,
+      "fn": 12,
+      "tn": 538,
+      "ap": 0.3590226344238081,
+      "positives": 34,
+      "events": 10,
+      "events_detected": 7,
+      "f1": 0.27672955974842767,
+      "channels": 30
+     },
+     "sg_default": {
+      "tp": 26,
+      "fp": 113,
+      "fn": 8,
+      "tn": 528,
+      "ap": 0.373337892174276,
+      "positives": 34,
+      "events": 10,
+      "events_detected": 10,
+      "f1": 0.300578034682081,
+      "channels": 30
+     },
+     "oes_latch": {
+      "tp": 31,
+      "fp": 154,
+      "fn": 3,
+      "tn": 487,
+      "ap": 0.3758523450766945,
+      "positives": 34,
+      "events": 10,
+      "events_detected": 10,
+      "f1": 0.28310502283105027,
+      "channels": 30
+     },
+     "oes_fixed": {
+      "tp": 34,
+      "fp": 641,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.5833106820095165,
+      "positives": 34,
+      "events": 10,
+      "events_detected": 10,
+      "f1": 0.09590973201692525,
+      "channels": 30
+     }
+    },
+    "machine-1-4": {
+     "streamguard_diff": {
+      "tp": 22,
+      "fp": 95,
+      "fn": 11,
+      "tn": 547,
+      "ap": 0.37091507834270226,
+      "positives": 33,
+      "events": 11,
+      "events_detected": 11,
+      "f1": 0.2933333333333333,
+      "channels": 30
+     },
+     "streamguard_median": {
+      "tp": 22,
+      "fp": 156,
+      "fn": 11,
+      "tn": 486,
+      "ap": 0.33093265907266667,
+      "positives": 33,
+      "events": 11,
+      "events_detected": 10,
+      "f1": 0.20853080568720378,
+      "channels": 30
+     },
+     "streamguard_detrend": {
+      "tp": 23,
+      "fp": 84,
+      "fn": 10,
+      "tn": 558,
+      "ap": 0.37637328128367625,
+      "positives": 33,
+      "events": 11,
+      "events_detected": 10,
+      "f1": 0.32857142857142857,
+      "channels": 30
+     },
+     "cusum": {
+      "tp": 33,
+      "fp": 642,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.1382992819662924,
+      "positives": 33,
+      "events": 11,
+      "events_detected": 11,
+      "f1": 0.09322033898305085,
+      "channels": 30
+     },
+     "ewma": {
+      "tp": 25,
+      "fp": 99,
+      "fn": 8,
+      "tn": 543,
+      "ap": 0.34162146573809365,
+      "positives": 33,
+      "events": 11,
+      "events_detected": 10,
+      "f1": 0.31847133757961776,
+      "channels": 30
+     },
+     "zscore": {
+      "tp": 21,
+      "fp": 303,
+      "fn": 12,
+      "tn": 339,
+      "ap": 0.08566570435887405,
+      "positives": 33,
+      "events": 11,
+      "events_detected": 11,
+      "f1": 0.11764705882352942,
+      "channels": 30
+     },
+     "iforest": {
+      "tp": 16,
+      "fp": 108,
+      "fn": 17,
+      "tn": 534,
+      "ap": 0.25839085831138997,
+      "positives": 33,
+      "events": 11,
+      "events_detected": 8,
+      "f1": 0.20382165605095542,
+      "channels": 30
+     },
+     "sg_default": {
+      "tp": 22,
+      "fp": 95,
+      "fn": 11,
+      "tn": 547,
+      "ap": 0.37091507834270226,
+      "positives": 33,
+      "events": 11,
+      "events_detected": 11,
+      "f1": 0.2933333333333333,
+      "channels": 30
+     },
+     "oes_latch": {
+      "tp": 28,
+      "fp": 207,
+      "fn": 5,
+      "tn": 435,
+      "ap": 0.3780769261621682,
+      "positives": 33,
+      "events": 11,
+      "events_detected": 11,
+      "f1": 0.208955223880597,
+      "channels": 30
+     },
+     "oes_fixed": {
+      "tp": 33,
+      "fp": 642,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.6359541368479513,
+      "positives": 33,
+      "events": 11,
+      "events_detected": 11,
+      "f1": 0.09322033898305085,
+      "channels": 30
+     }
+    },
+    "machine-1-5": {
+     "streamguard_diff": {
+      "tp": 11,
+      "fp": 550,
+      "fn": 0,
+      "tn": 114,
+      "ap": 0.7173128196521036,
+      "positives": 11,
+      "events": 7,
+      "events_detected": 7,
+      "f1": 0.038461538461538464,
+      "channels": 30
+     },
+     "streamguard_median": {
+      "tp": 11,
+      "fp": 558,
+      "fn": 0,
+      "tn": 106,
+      "ap": 0.6876096431443436,
+      "positives": 11,
+      "events": 7,
+      "events_detected": 7,
+      "f1": 0.03793103448275862,
+      "channels": 30
+     },
+     "streamguard_detrend": {
+      "tp": 11,
+      "fp": 539,
+      "fn": 0,
+      "tn": 125,
+      "ap": 0.7031543411757717,
+      "positives": 11,
+      "events": 7,
+      "events_detected": 7,
+      "f1": 0.0392156862745098,
+      "channels": 30
+     },
+     "cusum": {
+      "tp": 11,
+      "fp": 664,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.23888218243586087,
+      "positives": 11,
+      "events": 7,
+      "events_detected": 7,
+      "f1": 0.03206997084548105,
+      "channels": 30
+     },
+     "ewma": {
+      "tp": 11,
+      "fp": 664,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.7024901872080043,
+      "positives": 11,
+      "events": 7,
+      "events_detected": 7,
+      "f1": 0.03206997084548105,
+      "channels": 30
+     },
+     "zscore": {
+      "tp": 9,
+      "fp": 368,
+      "fn": 2,
+      "tn": 296,
+      "ap": 0.39504742919481833,
+      "positives": 11,
+      "events": 7,
+      "events_detected": 7,
+      "f1": 0.04639175257731958,
+      "channels": 30
+     },
+     "iforest": {
+      "tp": 11,
+      "fp": 589,
+      "fn": 0,
+      "tn": 75,
+      "ap": 0.059657955432277414,
+      "positives": 11,
+      "events": 7,
+      "events_detected": 7,
+      "f1": 0.03600654664484452,
+      "channels": 30
+     },
+     "sg_default": {
+      "tp": 11,
+      "fp": 550,
+      "fn": 0,
+      "tn": 114,
+      "ap": 0.7173128196521036,
+      "positives": 11,
+      "events": 7,
+      "events_detected": 7,
+      "f1": 0.038461538461538464,
+      "channels": 30
+     },
+     "oes_latch": {
+      "tp": 11,
+      "fp": 585,
+      "fn": 0,
+      "tn": 79,
+      "ap": 0.6719797561260975,
+      "positives": 11,
+      "events": 7,
+      "events_detected": 7,
+      "f1": 0.036243822075782535,
+      "channels": 30
+     },
+     "oes_fixed": {
+      "tp": 11,
+      "fp": 664,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.15932441992860497,
+      "positives": 11,
+      "events": 7,
+      "events_detected": 7,
+      "f1": 0.03206997084548105,
+      "channels": 30
+     }
+    },
+    "machine-2-1": {
+     "streamguard_diff": {
+      "tp": 34,
+      "fp": 128,
+      "fn": 15,
+      "tn": 498,
+      "ap": 0.4593692091520826,
+      "positives": 49,
+      "events": 13,
+      "events_detected": 13,
+      "f1": 0.3222748815165877,
+      "channels": 31
+     },
+     "streamguard_median": {
+      "tp": 40,
+      "fp": 162,
+      "fn": 9,
+      "tn": 464,
+      "ap": 0.5211555349269457,
+      "positives": 49,
+      "events": 13,
+      "events_detected": 13,
+      "f1": 0.3187250996015937,
+      "channels": 31
+     },
+     "streamguard_detrend": {
+      "tp": 34,
+      "fp": 125,
+      "fn": 15,
+      "tn": 501,
+      "ap": 0.5175339897085514,
+      "positives": 49,
+      "events": 13,
+      "events_detected": 13,
+      "f1": 0.3269230769230769,
+      "channels": 31
+     },
+     "cusum": {
+      "tp": 49,
+      "fp": 626,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.4448241015114481,
+      "positives": 49,
+      "events": 13,
+      "events_detected": 13,
+      "f1": 0.13535911602209946,
+      "channels": 31
+     },
+     "ewma": {
+      "tp": 39,
+      "fp": 216,
+      "fn": 10,
+      "tn": 410,
+      "ap": 0.5725877941232691,
+      "positives": 49,
+      "events": 13,
+      "events_detected": 13,
+      "f1": 0.2565789473684211,
+      "channels": 31
+     },
+     "zscore": {
+      "tp": 39,
+      "fp": 224,
+      "fn": 10,
+      "tn": 402,
+      "ap": 0.18035569550668024,
+      "positives": 49,
+      "events": 13,
+      "events_detected": 13,
+      "f1": 0.24999999999999997,
+      "channels": 31
+     },
+     "iforest": {
+      "tp": 31,
+      "fp": 186,
+      "fn": 18,
+      "tn": 440,
+      "ap": 0.28327534917416397,
+      "positives": 49,
+      "events": 13,
+      "events_detected": 10,
+      "f1": 0.2330827067669173,
+      "channels": 31
+     },
+     "sg_default": {
+      "tp": 34,
+      "fp": 128,
+      "fn": 15,
+      "tn": 498,
+      "ap": 0.4593692091520826,
+      "positives": 49,
+      "events": 13,
+      "events_detected": 13,
+      "f1": 0.3222748815165877,
+      "channels": 31
+     },
+     "oes_latch": {
+      "tp": 42,
+      "fp": 228,
+      "fn": 7,
+      "tn": 398,
+      "ap": 0.5452155345346302,
+      "positives": 49,
+      "events": 13,
+      "events_detected": 13,
+      "f1": 0.26332288401253917,
+      "channels": 31
+     },
+     "oes_fixed": {
+      "tp": 49,
+      "fp": 626,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.3352067805729567,
+      "positives": 49,
+      "events": 13,
+      "events_detected": 13,
+      "f1": 0.13535911602209946,
+      "channels": 31
+     }
+    },
+    "machine-2-4": {
+     "streamguard_diff": {
+      "tp": 68,
+      "fp": 572,
+      "fn": 2,
+      "tn": 33,
+      "ap": 0.6444753618555241,
+      "positives": 70,
+      "events": 19,
+      "events_detected": 18,
+      "f1": 0.19154929577464788,
+      "channels": 29
+     },
+     "streamguard_median": {
+      "tp": 66,
+      "fp": 365,
+      "fn": 4,
+      "tn": 240,
+      "ap": 0.515551508537704,
+      "positives": 70,
+      "events": 19,
+      "events_detected": 17,
+      "f1": 0.2634730538922156,
+      "channels": 29
+     },
+     "streamguard_detrend": {
+      "tp": 68,
+      "fp": 557,
+      "fn": 2,
+      "tn": 48,
+      "ap": 0.6203724970209807,
+      "positives": 70,
+      "events": 19,
+      "events_detected": 18,
+      "f1": 0.19568345323741007,
+      "channels": 29
+     },
+     "cusum": {
+      "tp": 70,
+      "fp": 605,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.3310148641346585,
+      "positives": 70,
+      "events": 19,
+      "events_detected": 19,
+      "f1": 0.18791946308724833,
+      "channels": 29
+     },
+     "ewma": {
+      "tp": 63,
+      "fp": 287,
+      "fn": 7,
+      "tn": 318,
+      "ap": 0.4192678962790877,
+      "positives": 70,
+      "events": 19,
+      "events_detected": 15,
+      "f1": 0.3,
+      "channels": 29
+     },
+     "zscore": {
+      "tp": 23,
+      "fp": 123,
+      "fn": 47,
+      "tn": 482,
+      "ap": 0.18452851127009498,
+      "positives": 70,
+      "events": 19,
+      "events_detected": 12,
+      "f1": 0.21296296296296294,
+      "channels": 29
+     },
+     "iforest": {
+      "tp": 67,
+      "fp": 307,
+      "fn": 3,
+      "tn": 298,
+      "ap": 0.6963284602527227,
+      "positives": 70,
+      "events": 19,
+      "events_detected": 19,
+      "f1": 0.30180180180180183,
+      "channels": 29
+     },
+     "sg_default": {
+      "tp": 68,
+      "fp": 572,
+      "fn": 2,
+      "tn": 33,
+      "ap": 0.6444753618555241,
+      "positives": 70,
+      "events": 19,
+      "events_detected": 18,
+      "f1": 0.19154929577464788,
+      "channels": 29
+     },
+     "oes_latch": {
+      "tp": 66,
+      "fp": 352,
+      "fn": 4,
+      "tn": 253,
+      "ap": 0.48508426358581935,
+      "positives": 70,
+      "events": 19,
+      "events_detected": 19,
+      "f1": 0.2704918032786885,
+      "channels": 29
+     },
+     "oes_fixed": {
+      "tp": 70,
+      "fp": 605,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.70819108897211,
+      "positives": 70,
+      "events": 19,
+      "events_detected": 19,
+      "f1": 0.18791946308724833,
+      "channels": 29
+     }
+    },
+    "machine-2-5": {
+     "streamguard_diff": {
+      "tp": 48,
+      "fp": 277,
+      "fn": 1,
+      "tn": 349,
+      "ap": 0.6465937451780314,
+      "positives": 49,
+      "events": 21,
+      "events_detected": 21,
+      "f1": 0.25668449197860965,
+      "channels": 30
+     },
+     "streamguard_median": {
+      "tp": 48,
+      "fp": 293,
+      "fn": 1,
+      "tn": 333,
+      "ap": 0.6213039994039445,
+      "positives": 49,
+      "events": 21,
+      "events_detected": 21,
+      "f1": 0.24615384615384617,
+      "channels": 30
+     },
+     "streamguard_detrend": {
+      "tp": 48,
+      "fp": 246,
+      "fn": 1,
+      "tn": 380,
+      "ap": 0.627976766520181,
+      "positives": 49,
+      "events": 21,
+      "events_detected": 21,
+      "f1": 0.27988338192419826,
+      "channels": 30
+     },
+     "cusum": {
+      "tp": 49,
+      "fp": 614,
+      "fn": 0,
+      "tn": 12,
+      "ap": 0.12396050343291348,
+      "positives": 49,
+      "events": 21,
+      "events_detected": 21,
+      "f1": 0.13764044943820225,
+      "channels": 30
+     },
+     "ewma": {
+      "tp": 48,
+      "fp": 309,
+      "fn": 1,
+      "tn": 317,
+      "ap": 0.5528701953236085,
+      "positives": 49,
+      "events": 21,
+      "events_detected": 21,
+      "f1": 0.23645320197044337,
+      "channels": 30
+     },
+     "zscore": {
+      "tp": 32,
+      "fp": 224,
+      "fn": 17,
+      "tn": 402,
+      "ap": 0.3877375072546338,
+      "positives": 49,
+      "events": 21,
+      "events_detected": 21,
+      "f1": 0.2098360655737705,
+      "channels": 30
+     },
+     "iforest": {
+      "tp": 39,
+      "fp": 186,
+      "fn": 10,
+      "tn": 440,
+      "ap": 0.20304948164647887,
+      "positives": 49,
+      "events": 21,
+      "events_detected": 14,
+      "f1": 0.28467153284671537,
+      "channels": 30
+     },
+     "sg_default": {
+      "tp": 48,
+      "fp": 277,
+      "fn": 1,
+      "tn": 349,
+      "ap": 0.6465937451780314,
+      "positives": 49,
+      "events": 21,
+      "events_detected": 21,
+      "f1": 0.25668449197860965,
+      "channels": 30
+     },
+     "oes_latch": {
+      "tp": 48,
+      "fp": 305,
+      "fn": 1,
+      "tn": 321,
+      "ap": 0.6204825224559857,
+      "positives": 49,
+      "events": 21,
+      "events_detected": 21,
+      "f1": 0.23880597014925373,
+      "channels": 30
+     },
+     "oes_fixed": {
+      "tp": 49,
+      "fp": 626,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.8314805000605391,
+      "positives": 49,
+      "events": 21,
+      "events_detected": 21,
+      "f1": 0.13535911602209946,
+      "channels": 30
+     }
+    },
+    "machine-2-6": {
+     "streamguard_diff": {
+      "tp": 14,
+      "fp": 99,
+      "fn": 5,
+      "tn": 715,
+      "ap": 0.3391882745763574,
+      "positives": 19,
+      "events": 6,
+      "events_detected": 6,
+      "f1": 0.21212121212121213,
+      "channels": 30
+     },
+     "streamguard_median": {
+      "tp": 15,
+      "fp": 129,
+      "fn": 4,
+      "tn": 685,
+      "ap": 0.3948351560192621,
+      "positives": 19,
+      "events": 6,
+      "events_detected": 6,
+      "f1": 0.18404907975460125,
+      "channels": 30
+     },
+     "streamguard_detrend": {
+      "tp": 14,
+      "fp": 108,
+      "fn": 5,
+      "tn": 706,
+      "ap": 0.36372186518931565,
+      "positives": 19,
+      "events": 6,
+      "events_detected": 6,
+      "f1": 0.19858156028368792,
+      "channels": 30
+     },
+     "cusum": {
+      "tp": 19,
+      "fp": 723,
+      "fn": 0,
+      "tn": 91,
+      "ap": 0.026650583261509243,
+      "positives": 19,
+      "events": 6,
+      "events_detected": 6,
+      "f1": 0.049934296977660976,
+      "channels": 30
+     },
+     "ewma": {
+      "tp": 17,
+      "fp": 127,
+      "fn": 2,
+      "tn": 687,
+      "ap": 0.39399130526993087,
+      "positives": 19,
+      "events": 6,
+      "events_detected": 6,
+      "f1": 0.20858895705521474,
+      "channels": 30
+     },
+     "zscore": {
+      "tp": 12,
+      "fp": 138,
+      "fn": 7,
+      "tn": 676,
+      "ap": 0.10771658642442933,
+      "positives": 19,
+      "events": 6,
+      "events_detected": 6,
+      "f1": 0.14201183431952663,
+      "channels": 30
+     },
+     "iforest": {
+      "tp": 13,
+      "fp": 98,
+      "fn": 6,
+      "tn": 716,
+      "ap": 0.19099241761886007,
+      "positives": 19,
+      "events": 6,
+      "events_detected": 5,
+      "f1": 0.19999999999999998,
+      "channels": 30
+     },
+     "sg_default": {
+      "tp": 14,
+      "fp": 99,
+      "fn": 5,
+      "tn": 715,
+      "ap": 0.3391882745763574,
+      "positives": 19,
+      "events": 6,
+      "events_detected": 6,
+      "f1": 0.21212121212121213,
+      "channels": 30
+     },
+     "oes_latch": {
+      "tp": 17,
+      "fp": 175,
+      "fn": 2,
+      "tn": 639,
+      "ap": 0.40093793087610136,
+      "positives": 19,
+      "events": 6,
+      "events_detected": 6,
+      "f1": 0.16113744075829384,
+      "channels": 30
+     },
+     "oes_fixed": {
+      "tp": 19,
+      "fp": 814,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.3575433840363397,
+      "positives": 19,
+      "events": 6,
+      "events_detected": 6,
+      "f1": 0.04460093896713615,
+      "channels": 30
+     }
+    },
+    "machine-2-7": {
+     "streamguard_diff": {
+      "tp": 29,
+      "fp": 309,
+      "fn": 0,
+      "tn": 337,
+      "ap": 0.33477489751887296,
+      "positives": 29,
+      "events": 19,
+      "events_detected": 19,
+      "f1": 0.15803814713896455,
+      "channels": 30
+     },
+     "streamguard_median": {
+      "tp": 29,
+      "fp": 317,
+      "fn": 0,
+      "tn": 329,
+      "ap": 0.31160157901653707,
+      "positives": 29,
+      "events": 19,
+      "events_detected": 19,
+      "f1": 0.15466666666666667,
+      "channels": 30
+     },
+     "streamguard_detrend": {
+      "tp": 29,
+      "fp": 250,
+      "fn": 0,
+      "tn": 396,
+      "ap": 0.34192462059283163,
+      "positives": 29,
+      "events": 19,
+      "events_detected": 19,
+      "f1": 0.18831168831168832,
+      "channels": 30
+     },
+     "cusum": {
+      "tp": 29,
+      "fp": 616,
+      "fn": 0,
+      "tn": 30,
+      "ap": 0.05268229902718706,
+      "positives": 29,
+      "events": 19,
+      "events_detected": 19,
+      "f1": 0.08605341246290801,
+      "channels": 30
+     },
+     "ewma": {
+      "tp": 29,
+      "fp": 331,
+      "fn": 0,
+      "tn": 315,
+      "ap": 0.35258402272856854,
+      "positives": 29,
+      "events": 19,
+      "events_detected": 19,
+      "f1": 0.14910025706940877,
+      "channels": 30
+     },
+     "zscore": {
+      "tp": 18,
+      "fp": 278,
+      "fn": 11,
+      "tn": 368,
+      "ap": 0.12427510338835414,
+      "positives": 29,
+      "events": 19,
+      "events_detected": 16,
+      "f1": 0.11076923076923077,
+      "channels": 30
+     },
+     "iforest": {
+      "tp": 18,
+      "fp": 267,
+      "fn": 11,
+      "tn": 379,
+      "ap": 0.06577897238643757,
+      "positives": 29,
+      "events": 19,
+      "events_detected": 9,
+      "f1": 0.11464968152866242,
+      "channels": 30
+     },
+     "sg_default": {
+      "tp": 29,
+      "fp": 309,
+      "fn": 0,
+      "tn": 337,
+      "ap": 0.33477489751887296,
+      "positives": 29,
+      "events": 19,
+      "events_detected": 19,
+      "f1": 0.15803814713896455,
+      "channels": 30
+     },
+     "oes_latch": {
+      "tp": 29,
+      "fp": 323,
+      "fn": 0,
+      "tn": 323,
+      "ap": 0.3721745629047242,
+      "positives": 29,
+      "events": 19,
+      "events_detected": 19,
+      "f1": 0.15223097112860892,
+      "channels": 30
+     },
+     "oes_fixed": {
+      "tp": 29,
+      "fp": 646,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.30350672578864923,
+      "positives": 29,
+      "events": 19,
+      "events_detected": 19,
+      "f1": 0.08238636363636363,
+      "channels": 30
+     }
+    },
+    "machine-2-8": {
+     "streamguard_diff": {
+      "tp": 6,
+      "fp": 176,
+      "fn": 0,
+      "tn": 493,
+      "ap": 0.9583333333333334,
+      "positives": 6,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.06382978723404255,
+      "channels": 31
+     },
+     "streamguard_median": {
+      "tp": 6,
+      "fp": 285,
+      "fn": 0,
+      "tn": 384,
+      "ap": 1.0,
+      "positives": 6,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.04040404040404041,
+      "channels": 31
+     },
+     "streamguard_detrend": {
+      "tp": 6,
+      "fp": 165,
+      "fn": 0,
+      "tn": 504,
+      "ap": 0.9333333333333333,
+      "positives": 6,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.06779661016949151,
+      "channels": 31
+     },
+     "cusum": {
+      "tp": 6,
+      "fp": 647,
+      "fn": 0,
+      "tn": 22,
+      "ap": 0.34968736540565326,
+      "positives": 6,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.018209408194233688,
+      "channels": 31
+     },
+     "ewma": {
+      "tp": 6,
+      "fp": 341,
+      "fn": 0,
+      "tn": 328,
+      "ap": 1.0,
+      "positives": 6,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.0339943342776204,
+      "channels": 31
+     },
+     "zscore": {
+      "tp": 4,
+      "fp": 279,
+      "fn": 2,
+      "tn": 390,
+      "ap": 0.18082134174106795,
+      "positives": 6,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.02768166089965398,
+      "channels": 31
+     },
+     "iforest": {
+      "tp": 6,
+      "fp": 219,
+      "fn": 0,
+      "tn": 450,
+      "ap": 1.0,
+      "positives": 6,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.05194805194805195,
+      "channels": 31
+     },
+     "sg_default": {
+      "tp": 6,
+      "fp": 176,
+      "fn": 0,
+      "tn": 493,
+      "ap": 0.9583333333333334,
+      "positives": 6,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.06382978723404255,
+      "channels": 31
+     },
+     "oes_latch": {
+      "tp": 6,
+      "fp": 351,
+      "fn": 0,
+      "tn": 318,
+      "ap": 1.0,
+      "positives": 6,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.03305785123966942,
+      "channels": 31
+     },
+     "oes_fixed": {
+      "tp": 6,
+      "fp": 669,
+      "fn": 0,
+      "tn": 0,
+      "ap": 1.0,
+      "positives": 6,
+      "events": 1,
+      "events_detected": 1,
+      "f1": 0.017621145374449337,
+      "channels": 31
+     }
+    },
+    "machine-3-3": {
+     "streamguard_diff": {
+      "tp": 35,
+      "fp": 136,
+      "fn": 7,
+      "tn": 497,
+      "ap": 0.5067997350877514,
+      "positives": 42,
+      "events": 24,
+      "events_detected": 21,
+      "f1": 0.32863849765258213,
+      "channels": 33
+     },
+     "streamguard_median": {
+      "tp": 40,
+      "fp": 138,
+      "fn": 2,
+      "tn": 495,
+      "ap": 0.49250624743004534,
+      "positives": 42,
+      "events": 24,
+      "events_detected": 23,
+      "f1": 0.36363636363636365,
+      "channels": 33
+     },
+     "streamguard_detrend": {
+      "tp": 39,
+      "fp": 180,
+      "fn": 3,
+      "tn": 453,
+      "ap": 0.5272819941394838,
+      "positives": 42,
+      "events": 24,
+      "events_detected": 23,
+      "f1": 0.29885057471264365,
+      "channels": 33
+     },
+     "cusum": {
+      "tp": 42,
+      "fp": 633,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.18355291090855053,
+      "positives": 42,
+      "events": 24,
+      "events_detected": 24,
+      "f1": 0.11715481171548117,
+      "channels": 33
+     },
+     "ewma": {
+      "tp": 36,
+      "fp": 157,
+      "fn": 6,
+      "tn": 476,
+      "ap": 0.3721563738147599,
+      "positives": 42,
+      "events": 24,
+      "events_detected": 22,
+      "f1": 0.3063829787234043,
+      "channels": 33
+     },
+     "zscore": {
+      "tp": 32,
+      "fp": 155,
+      "fn": 10,
+      "tn": 478,
+      "ap": 0.1618271806363755,
+      "positives": 42,
+      "events": 24,
+      "events_detected": 24,
+      "f1": 0.2794759825327511,
+      "channels": 33
+     },
+     "iforest": {
+      "tp": 11,
+      "fp": 77,
+      "fn": 31,
+      "tn": 556,
+      "ap": 0.13614015732496051,
+      "positives": 42,
+      "events": 24,
+      "events_detected": 7,
+      "f1": 0.16923076923076924,
+      "channels": 33
+     },
+     "sg_default": {
+      "tp": 35,
+      "fp": 136,
+      "fn": 7,
+      "tn": 497,
+      "ap": 0.5067997350877514,
+      "positives": 42,
+      "events": 24,
+      "events_detected": 21,
+      "f1": 0.32863849765258213,
+      "channels": 33
+     },
+     "oes_latch": {
+      "tp": 38,
+      "fp": 168,
+      "fn": 4,
+      "tn": 465,
+      "ap": 0.5860904913926175,
+      "positives": 42,
+      "events": 24,
+      "events_detected": 23,
+      "f1": 0.3064516129032258,
+      "channels": 33
+     },
+     "oes_fixed": {
+      "tp": 42,
+      "fp": 633,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.46366739690258746,
+      "positives": 42,
+      "events": 24,
+      "events_detected": 24,
+      "f1": 0.11715481171548117,
+      "channels": 33
+     }
+    },
+    "machine-3-7": {
+     "streamguard_diff": {
+      "tp": 15,
+      "fp": 530,
+      "fn": 4,
+      "tn": 283,
+      "ap": 0.5223391590871527,
+      "positives": 19,
+      "events": 5,
+      "events_detected": 5,
+      "f1": 0.05319148936170213,
+      "channels": 30
+     },
+     "streamguard_median": {
+      "tp": 16,
+      "fp": 527,
+      "fn": 3,
+      "tn": 286,
+      "ap": 0.5976685777450004,
+      "positives": 19,
+      "events": 5,
+      "events_detected": 5,
+      "f1": 0.056939501779359435,
+      "channels": 30
+     },
+     "streamguard_detrend": {
+      "tp": 11,
+      "fp": 395,
+      "fn": 8,
+      "tn": 418,
+      "ap": 0.5218881526696473,
+      "positives": 19,
+      "events": 5,
+      "events_detected": 5,
+      "f1": 0.05176470588235294,
+      "channels": 30
+     },
+     "cusum": {
+      "tp": 19,
+      "fp": 813,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.47022047354479896,
+      "positives": 19,
+      "events": 5,
+      "events_detected": 5,
+      "f1": 0.04465334900117508,
+      "channels": 30
+     },
+     "ewma": {
+      "tp": 16,
+      "fp": 320,
+      "fn": 3,
+      "tn": 493,
+      "ap": 0.7522483698922615,
+      "positives": 19,
+      "events": 5,
+      "events_detected": 5,
+      "f1": 0.09014084507042253,
+      "channels": 30
+     },
+     "zscore": {
+      "tp": 10,
+      "fp": 276,
+      "fn": 9,
+      "tn": 537,
+      "ap": 0.13716832334148385,
+      "positives": 19,
+      "events": 5,
+      "events_detected": 5,
+      "f1": 0.06557377049180327,
+      "channels": 30
+     },
+     "iforest": {
+      "tp": 13,
+      "fp": 233,
+      "fn": 6,
+      "tn": 580,
+      "ap": 0.4499580808832643,
+      "positives": 19,
+      "events": 5,
+      "events_detected": 3,
+      "f1": 0.0981132075471698,
+      "channels": 30
+     },
+     "sg_default": {
+      "tp": 15,
+      "fp": 530,
+      "fn": 4,
+      "tn": 283,
+      "ap": 0.5223391590871527,
+      "positives": 19,
+      "events": 5,
+      "events_detected": 5,
+      "f1": 0.05319148936170213,
+      "channels": 30
+     },
+     "oes_latch": {
+      "tp": 17,
+      "fp": 541,
+      "fn": 2,
+      "tn": 272,
+      "ap": 0.6617655386154104,
+      "positives": 19,
+      "events": 5,
+      "events_detected": 5,
+      "f1": 0.058925476603119586,
+      "channels": 30
+     },
+     "oes_fixed": {
+      "tp": 19,
+      "fp": 813,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.527683691365512,
+      "positives": 19,
+      "events": 5,
+      "events_detected": 5,
+      "f1": 0.04465334900117508,
+      "channels": 30
+     }
+    },
+    "machine-3-8": {
+     "streamguard_diff": {
+      "tp": 50,
+      "fp": 420,
+      "fn": 0,
+      "tn": 362,
+      "ap": 0.4180242130336616,
+      "positives": 50,
+      "events": 6,
+      "events_detected": 6,
+      "f1": 0.1923076923076923,
+      "channels": 28
+     },
+     "streamguard_median": {
+      "tp": 44,
+      "fp": 386,
+      "fn": 6,
+      "tn": 396,
+      "ap": 0.34109543619871574,
+      "positives": 50,
+      "events": 6,
+      "events_detected": 6,
+      "f1": 0.18333333333333332,
+      "channels": 28
+     },
+     "streamguard_detrend": {
+      "tp": 50,
+      "fp": 414,
+      "fn": 0,
+      "tn": 368,
+      "ap": 0.4281145746314295,
+      "positives": 50,
+      "events": 6,
+      "events_detected": 6,
+      "f1": 0.19455252918287935,
+      "channels": 28
+     },
+     "cusum": {
+      "tp": 50,
+      "fp": 782,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.07854124803070825,
+      "positives": 50,
+      "events": 6,
+      "events_detected": 6,
+      "f1": 0.11337868480725626,
+      "channels": 28
+     },
+     "ewma": {
+      "tp": 48,
+      "fp": 375,
+      "fn": 2,
+      "tn": 407,
+      "ap": 0.28632078331274957,
+      "positives": 50,
+      "events": 6,
+      "events_detected": 6,
+      "f1": 0.20295983086680763,
+      "channels": 28
+     },
+     "zscore": {
+      "tp": 23,
+      "fp": 199,
+      "fn": 27,
+      "tn": 583,
+      "ap": 0.10768391217607713,
+      "positives": 50,
+      "events": 6,
+      "events_detected": 6,
+      "f1": 0.1691176470588235,
+      "channels": 28
+     },
+     "iforest": {
+      "tp": 31,
+      "fp": 279,
+      "fn": 19,
+      "tn": 503,
+      "ap": 0.09993105302609688,
+      "positives": 50,
+      "events": 6,
+      "events_detected": 6,
+      "f1": 0.17222222222222222,
+      "channels": 28
+     },
+     "sg_default": {
+      "tp": 50,
+      "fp": 420,
+      "fn": 0,
+      "tn": 362,
+      "ap": 0.4180242130336616,
+      "positives": 50,
+      "events": 6,
+      "events_detected": 6,
+      "f1": 0.1923076923076923,
+      "channels": 28
+     },
+     "oes_latch": {
+      "tp": 49,
+      "fp": 454,
+      "fn": 1,
+      "tn": 328,
+      "ap": 0.3523631077510113,
+      "positives": 50,
+      "events": 6,
+      "events_detected": 6,
+      "f1": 0.17721518987341772,
+      "channels": 28
+     },
+     "oes_fixed": {
+      "tp": 50,
+      "fp": 782,
+      "fn": 0,
+      "tn": 0,
+      "ap": 0.3097510886632454,
+      "positives": 50,
+      "events": 6,
+      "events_detected": 6,
+      "f1": 0.11337868480725626,
+      "channels": 28
+     }
+    }
+   }
+  }
+ },
+ "streaming_throughput_nab": {
+  "blocks": 9141,
+  "seconds": 0.21197768702404574,
+  "blocks_per_s": 43122.46316265866
+ },
+ "memory_nab_longest": {
+  "series": "realKnownCause/machine_temperature_system_failure.csv",
+  "blocks": 709,
+  "StreamGuard.process (per stream)": {
+   "retained_bytes": 1060,
+   "peak_bytes": 54228
+  },
+  "StreamGuard diff (mode=diff) (batch scoring)": {
+   "peak_bytes": 392192
+  },
+  "StreamGuard median (mode=median) (batch scoring)": {
+   "peak_bytes": 393060
+  },
+  "StreamGuard detrend (mode=detrend) (batch scoring)": {
+   "peak_bytes": 392120
+  },
+  "CUSUM (k=0.5) (batch scoring)": {
+   "peak_bytes": 376424
+  },
+  "CUSUM (k=1.0) (batch scoring)": {
+   "peak_bytes": 376424
+  },
+  "CUSUM (k=2.0) (batch scoring)": {
+   "peak_bytes": 376304
+  },
+  "EWMA chart (lam=0.1) (batch scoring)": {
+   "peak_bytes": 726342
+  },
+  "EWMA chart (lam=0.2) (batch scoring)": {
+   "peak_bytes": 726298
+  },
+  "EWMA chart (lam=0.3) (batch scoring)": {
+   "peak_bytes": 726298
+  },
+  "Rolling z-score (window=64) (batch scoring)": {
+   "peak_bytes": 8584
+  },
+  "Rolling z-score (window=288) (batch scoring)": {
+   "peak_bytes": 10256
+  },
+  "Isolation Forest (batch scoring)": {
+   "peak_bytes": 656839
+  },
+  "StreamGuard default (untuned) (mode=diff) (batch scoring)": {
+   "peak_bytes": 392345
+  },
+  "oes512q-latch v2 config (q=0.99) (batch scoring)": {
+   "peak_bytes": 557616
+  },
+  "oes512q-latch fixed tau=0.50 (batch scoring)": {
+   "peak_bytes": 557616
+  }
+ },
+ "nab_official_score": {
+  "evidence": "REPORTED (NAB official scorer, test-split sub-corpus; see note)",
+  "nab_commit": "ea702d75cc2258d9d7dd35ca8e5e2539d71f3140",
+  "series": 16,
+  "note": "Needs a NAB checkout at the pinned commit (``--nab``) and a Python with ``pandas>=2,<3`` and\n``simplejson`` for NAB's code (``--nab-python``). Reads the chosen settings from results.json,\nrecomputes detections on the NAB **test** series, writes NAB result files (anomaly_score = 1 on\nthe last sample of each latched block, 0 elsewhere, 0 during warm-up) and runs NAB's scorer at\nthreshold 0.5 with **no** NAB threshold optimisation. Published NAB detectors are re-scored on\nthe same sub-corpus from NAB's own result files with NAB's official thresholds (which NAB\noptimised on its full corpus with labels), for context only. Normalised with the null\ndetector on the same sub-corpus. Not comparable to the public NAB scoreboard.",
+  "normalized": {
+   "streamguard_diff": {
+    "reward_low_FN_rate": 40.22,
+    "reward_low_FP_rate": 23.43,
+    "standard": 34.57
+   },
+   "streamguard_median": {
+    "reward_low_FN_rate": 31.82,
+    "reward_low_FP_rate": -2.7,
+    "standard": 21.98
+   },
+   "streamguard_detrend": {
+    "reward_low_FN_rate": 35.79,
+    "reward_low_FP_rate": 15.3,
+    "standard": 29.44
+   },
+   "cusum": {
+    "reward_low_FN_rate": -35.17,
+    "reward_low_FP_rate": -215.92,
+    "standard": -81.54
+   },
+   "ewma": {
+    "reward_low_FN_rate": 38.18,
+    "reward_low_FP_rate": 5.2,
+    "standard": 28.48
+   },
+   "zscore": {
+    "reward_low_FN_rate": 26.4,
+    "reward_low_FP_rate": 20.94,
+    "standard": 24.44
+   },
+   "iforest": {
+    "reward_low_FN_rate": 42.35,
+    "reward_low_FP_rate": 31.0,
+    "standard": 37.77
+   },
+   "sg_default": {
+    "reward_low_FN_rate": 36.04,
+    "reward_low_FP_rate": 22.78,
+    "standard": 31.33
+   },
+   "oes_latch": {
+    "reward_low_FN_rate": 31.69,
+    "reward_low_FP_rate": -3.09,
+    "standard": 21.78
+   },
+   "oes_fixed": {
+    "reward_low_FN_rate": -171.71,
+    "reward_low_FP_rate": -657.69,
+    "standard": -293.93
+   },
+   "numenta": {
+    "reward_low_FN_rate": 84.43,
+    "reward_low_FP_rate": 72.75,
+    "standard": 79.68
+   },
+   "windowedGaussian": {
+    "reward_low_FN_rate": 44.87,
+    "reward_low_FP_rate": 1.88,
+    "standard": 32.45
+   },
+   "relativeEntropy": {
+    "reward_low_FN_rate": 56.67,
+    "reward_low_FP_rate": 46.96,
+    "standard": 53.19
+   },
+   "knncad": {
+    "reward_low_FN_rate": 73.84,
+    "reward_low_FP_rate": 52.57,
+    "standard": 66.83
+   },
+   "bayesChangePt": {
+    "reward_low_FN_rate": 34.76,
+    "reward_low_FP_rate": -6.72,
+    "standard": 18.5
+   },
+   "random": {
+    "reward_low_FN_rate": 29.61,
+    "reward_low_FP_rate": 14.63,
+    "standard": 20.17
+   }
+  }
+ }
+}

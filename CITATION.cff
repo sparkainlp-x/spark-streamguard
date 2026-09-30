@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite it as below. Demo outputs are SYNTHETIC; no benchmarks have been run yet (all performance figures are TARGET or UNRUN)."
+message: "If you use this software, please cite it as below. Demo outputs are SYNTHETIC; real-data results on NAB and SMD are REPORTED in the README (StreamGuard does not beat the standard baselines there)."
 title: "Spark StreamGuard: a streaming, fail-closed guardrail for numeric data in 32-value blocks"
 type: software
 authors:
@@ -17,7 +17,8 @@ abstract: >-
   warm-up window (0.99 quantile of warm-up scores on robust-scaled residuals),
   with an optional bounded drift rule; the fixed τ = 0.50 remains available.
   Constant memory per stream and a JSONL audit log of every decision. Scorer and
-  calibrator ported from oes512q-latch. No benchmarks run yet.
+  calibrator ported from oes512q-latch. Real-data benchmark on NAB and SMD (REPORTED):
+  StreamGuard does not beat an EWMA control chart on NAB and ties on SMD.
 keywords:
   - anomaly detection
   - streaming

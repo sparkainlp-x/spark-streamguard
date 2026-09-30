@@ -8,9 +8,10 @@ constant memory per stream and writes every decision to a JSONL audit log.
 Status: research prototype, milestone 1 (`0.1.0.dev0`). Runtime dependency: numpy only.
 Python 3.10 to 3.13.
 
-> **No benchmarks run yet; all performance figures are TARGET or UNRUN.**
-> The only measured numbers are SYNTHETIC (generated data): the demo and the reference-mode
-> comparison below. Nothing has been measured on real data.
+> **First real-data benchmark (milestone 4): StreamGuard does not beat the standard baselines.**
+> On NAB it is significantly worse than an EWMA control chart; on SMD all methods tie at a poor
+> level. See [Real-data benchmark (REPORTED)](#real-data-benchmark-reported). Other numbers in
+> this README are SYNTHETIC (generated data) or TARGET/UNRUN.
 
 The scorer, latch rule and self-calibrated threshold are ported from
 [oes512q-latch](https://github.com/sparkainlp-x/oes512q-latch) (v0.2.0) and cleaned up; a
@@ -360,26 +361,204 @@ On held-out data the chosen setting keeps recall at 98.8% and cuts false latches
 `median` stays available (`reference="median"`, `--reference median`) for data where a level
 reference fits better, for example stationary data with slow anomalies.
 
+## Real-data benchmark (REPORTED)
+
+Run on 2026-09-29 with StreamGuard 0.1.0.dev0 (`benchmarks/real/`,
+results in `benchmarks/real/results.json` and `results.md`). **REPORTED**: public data, this
+code, settings chosen on tuning splits only.
+
+**Data.**
+* **NAB** at commit `ea702d7` (47 labelled real series; SHA-256 manifest).
+* **SMD** (Server Machine Dataset, OmniAnomaly repo) at commit `7fb0e0a`: 28 machines x 38
+  channels, `test` split with `test_label`, SHA-256 manifest.
+* **Yahoo S5 is not included**: it needs a Yahoo Webscope licence and registration, and
+  unofficial mirrors were not used.
+* Data are downloaded by `benchmarks/real/download.py` into a cache outside git
+  (`~/.cache/spark-streamguard-bench`). CI never downloads; it runs a tiny generated fixture.
+
+**Protocol** (fixed before any result was computed; details in `benchmarks/real/protocol.py`):
+* **Blocks and labels.** Every method sees the same 32-sample blocks and the same labels: a block
+  is positive if it overlaps a labelled anomaly (NAB windows, SMD `test_label`).
+* **Warm-up.** Block 0 seeds references and blocks 1..64 calibrate every method. The evaluation
+  region is blocks 65 onward. Labels inside the warm-up are ignored, not removed: 16 of the 32
+  kept NAB series and 16 of the 28 SMD machines have labelled blocks there.
+* **Short series.** Series shorter than 97 blocks are **excluded**: 15 of 47 NAB series (listed in
+  `results.json`), none of SMD.
+* **Threshold.** The same rule for every method: `tau` = the q quantile of that method's warm-up
+  block scores.
+* **Tuning.** Each method's parameters and q are chosen from small fixed grids by pooled F1 on a
+  tuning split: series shuffled with seed 42 and split in half per dataset (NAB 16/16,
+  SMD 14/14). They are then applied once to the test split. "Untuned" rows use settings fixed in
+  advance.
+* **SMD is multivariate.** Each method scores each channel. The block latches if any channel's
+  score / tau is >= 1. 225 of 1,064 channels are constant during warm-up and are excluded for all
+  methods.
+
+**Methods.**
+* StreamGuard `diff` (the shipped default, untuned: W=64, q=0.999), plus `diff`, `median` and
+  `detrend` with q tuned.
+* Two-sided CUSUM (k in {0.5, 1, 2}).
+* EWMA control chart (lambda in {0.1, 0.2, 0.3}).
+* Rolling z-score (window 64 or 288).
+* Isolation Forest (scikit-learn, 100 trees, seed 42, fitted per series on the warm-up blocks).
+* The oes512q-latch v2 configuration (trailing-median residual, q=0.99, untuned) and its fixed
+  tau=0.50.
+* CUSUM, EWMA, Isolation Forest and oes512q-latch use the oes512q-latch trailing-median
+  residual.
+
+In the tables:
+* **P / R / F1** are pooled over all test evaluation blocks.
+* **mean F1 / mean AP** average over test series with at least one positive block.
+* **Event recall** and **delay** use runs of positive blocks. Delay counts from the start of the
+  labelled window, and NAB windows start before the anomaly.
+
+**NAB**: 47 series, 15 excluded as too short (< 97 blocks), 16 tune / 16 test; test evaluation blocks 2621, positive 277.
+
+| Method (setting chosen on tune split) | q | P | R | F1 | mean F1 | mean AP | False-latch rate | Event recall | Median delay (blocks) |
+|---|---|---|---|---|---|---|---|---|---|
+| StreamGuard default (untuned) (mode=diff) | 0.999 | 0.349 | 0.105 | **0.161** | 0.158 | 0.295 | 2.3% | 71.4% | 4.0 |
+| StreamGuard diff (mode=diff) | 0.99 | 0.340 | 0.130 | **0.188** | 0.170 | 0.295 | 3.0% | 81.0% | 4.0 |
+| StreamGuard median (mode=median) | 0.99 | 0.249 | 0.181 | **0.209** | 0.214 | 0.329 | 6.4% | 76.2% | 4.0 |
+| StreamGuard detrend (mode=detrend) | 0.99 | 0.302 | 0.137 | **0.189** | 0.176 | 0.267 | 3.8% | 76.2% | 4.0 |
+| CUSUM (k=2.0) | 0.99 | 0.153 | 0.538 | **0.238** | 0.255 | 0.310 | 35.2% | 81.0% | 4.0 |
+| EWMA chart (lam=0.2) | 0.99 | 0.316 | 0.238 | **0.272** | 0.281 | 0.369 | 6.1% | 85.7% | 4.0 |
+| Rolling z-score (window=288) | 0.99 | 0.323 | 0.036 | **0.065** | 0.071 | 0.259 | 0.9% | 47.6% | 4.0 |
+| Isolation Forest | 0.99 | 0.517 | 0.166 | **0.251** | 0.258 | 0.392 | 1.8% | 81.0% | 4.0 |
+| oes512q-latch v2 config (q=0.99) | 0.99 | 0.261 | 0.195 | **0.223** | 0.208 | 0.338 | 6.5% | 76.2% | 4.0 |
+| oes512q-latch fixed tau=0.50 | fixed tau | 0.103 | 0.921 | **0.185** | 0.230 | 0.338 | 94.8% | 100.0% | 0.0 |
+
+Significance vs the best baseline on test (ewma), paired per test series with at least one positive evaluation block (difference = StreamGuard minus baseline; 95% bootstrap CI, 10,000 resamples; two-sided Wilcoxon signed-rank):
+
+| StreamGuard setting | Metric | n | Mean diff | 95% CI | Wilcoxon p | W/L |
+|---|---|---|---|---|---|---|
+| StreamGuard default (untuned) (mode=diff) | F1 | 15 | -0.123 | [-0.220, -0.035] | 0.028 | 3/9 |
+| StreamGuard default (untuned) (mode=diff) | AP | 15 | -0.075 | [-0.126, -0.030] | 0.005 | 3/12 |
+| StreamGuard diff (mode=diff) | F1 | 15 | -0.111 | [-0.212, -0.021] | 0.033 | 3/10 |
+| StreamGuard diff (mode=diff) | AP | 15 | -0.075 | [-0.126, -0.030] | 0.005 | 3/12 |
+| StreamGuard median (mode=median) | F1 | 15 | -0.067 | [-0.172, +0.026] | 0.182 | 4/8 |
+| StreamGuard median (mode=median) | AP | 15 | -0.041 | [-0.079, -0.008] | 0.041 | 3/12 |
+| StreamGuard detrend (mode=detrend) | F1 | 15 | -0.105 | [-0.205, -0.017] | 0.034 | 3/9 |
+| StreamGuard detrend (mode=detrend) | AP | 15 | -0.103 | [-0.155, -0.058] | 0.000 | 2/13 |
+
+**SMD**: 28 series, 0 excluded as too short (< 97 blocks), 14 tune / 14 test; test evaluation blocks 10071, positive 529.
+
+| Method (setting chosen on tune split) | q | P | R | F1 | mean F1 | mean AP | False-latch rate | Event recall | Median delay (blocks) |
+|---|---|---|---|---|---|---|---|---|---|
+| StreamGuard default (untuned) (mode=diff) | 0.999 | 0.106 | 0.881 | **0.189** | 0.212 | 0.507 | 41.2% | 97.5% | 0.0 |
+| StreamGuard diff (mode=diff) | 0.999 | 0.106 | 0.881 | **0.189** | 0.212 | 0.507 | 41.2% | 97.5% | 0.0 |
+| StreamGuard median (mode=median) | 0.999 | 0.106 | 0.898 | **0.190** | 0.204 | 0.498 | 42.0% | 97.5% | 0.0 |
+| StreamGuard detrend (mode=detrend) | 0.999 | 0.115 | 0.887 | **0.203** | 0.228 | 0.511 | 37.9% | 97.5% | 0.0 |
+| CUSUM (k=2.0) | 0.999 | 0.054 | 1.000 | **0.102** | 0.101 | 0.217 | 97.3% | 100.0% | 0.0 |
+| EWMA chart (lam=0.2) | 0.999 | 0.107 | 0.917 | **0.192** | 0.208 | 0.496 | 42.4% | 95.0% | 0.0 |
+| Rolling z-score (window=64) | 0.999 | 0.088 | 0.592 | **0.153** | 0.159 | 0.180 | 34.1% | 92.5% | 0.0 |
+| Isolation Forest | 0.999 | 0.102 | 0.733 | **0.179** | 0.184 | 0.345 | 35.8% | 69.4% | 0.0 |
+| oes512q-latch v2 config (q=0.99) | 0.99 | 0.099 | 0.945 | **0.179** | 0.190 | 0.519 | 47.6% | 99.4% | 0.0 |
+| oes512q-latch fixed tau=0.50 | fixed tau | 0.053 | 1.000 | **0.100** | 0.098 | 0.521 | 100.0% | 100.0% | 0.0 |
+
+Significance vs the best baseline on test (ewma), paired per test series with at least one positive evaluation block (difference = StreamGuard minus baseline; 95% bootstrap CI, 10,000 resamples; two-sided Wilcoxon signed-rank):
+
+| StreamGuard setting | Metric | n | Mean diff | 95% CI | Wilcoxon p | W/L |
+|---|---|---|---|---|---|---|
+| StreamGuard default (untuned) (mode=diff) | F1 | 14 | +0.003 | [-0.021, +0.027] | 0.808 | 8/6 |
+| StreamGuard default (untuned) (mode=diff) | AP | 14 | +0.012 | [-0.049, +0.070] | 0.715 | 8/6 |
+| StreamGuard diff (mode=diff) | F1 | 14 | +0.003 | [-0.021, +0.027] | 0.808 | 8/6 |
+| StreamGuard diff (mode=diff) | AP | 14 | +0.012 | [-0.049, +0.070] | 0.715 | 8/6 |
+| StreamGuard median (mode=median) | F1 | 14 | -0.005 | [-0.029, +0.020] | 0.855 | 7/7 |
+| StreamGuard median (mode=median) | AP | 14 | +0.002 | [-0.034, +0.037] | 0.917 | 6/7 |
+| StreamGuard detrend (mode=detrend) | F1 | 14 | +0.019 | [-0.010, +0.050] | 0.241 | 8/6 |
+| StreamGuard detrend (mode=detrend) | AP | 14 | +0.016 | [-0.043, +0.070] | 0.626 | 8/6 |
+
+**Where StreamGuard wins and loses (REPORTED):**
+* **NAB: StreamGuard loses.** The best baseline is the EWMA chart (F1 0.272, mean AP 0.369),
+  followed by Isolation Forest (0.251 / 0.392) and CUSUM (F1 0.238). The best StreamGuard setting
+  is `median` (F1 0.209); the shipped default reaches only F1 0.161.
+  * Against EWMA, per series, the default, `diff` and `detrend` are significantly worse on F1
+    (Wilcoxon p about 0.03) and on AP (p <= 0.005).
+  * `median` is not significantly worse on F1 (p = 0.18) but is on AP (p = 0.04).
+  * The default's strength is precision: its false-latch rate is 2.3%, against 6.1% for EWMA
+    and 35% for CUSUM. It pays for that with low recall (0.105).
+* **SMD: a tie at a poor level.** All quantile-threshold methods except CUSUM land at F1 0.15
+  to 0.20 with false-latch rates of 34% to 48%. CUSUM reaches F1 0.10 with 97% false latches.
+  * StreamGuard `detrend` has the highest F1 (0.203), and the default is at 0.189 against 0.192
+    for EWMA. None of the differences is significant (p 0.24 to 0.92).
+  * The oes512q-latch score has the highest mean AP (0.519 to 0.521, against 0.507 for the
+    default).
+  * The "any of 38 channels" rule with a per-channel q=0.999 threshold from only 64 warm-up
+    blocks produces many false alarms for every method. This is a weakness of the protocol and
+    of per-channel calibration, not only of StreamGuard.
+* **Settings at grid edges.** On NAB the tuning split chose q = 0.99 for every
+  quantile-threshold method (the lowest value in the grid), and on SMD it chose q = 0.999 (the
+  highest). CUSUM chose k = 2.0 on both. So the grids may be too narrow. They were not widened
+  after seeing test results.
+
+**Throughput and memory** (Intel(R) Xeon(R) Processor, single thread, Python
+3.13.5, numpy 2.5.3):
+* `StreamGuard.process()` streams **43,122 blocks/s** on real NAB blocks. That
+  is below the spec's TARGET of 100k blocks/s.
+* A `StreamGuard` stream retains about 1 KiB after calibration, with a peak of about 53 KiB while
+  the 64-block warm-up buffer is alive (tracemalloc, longest NAB series). That is well within the
+  10 MB TARGET.
+* The baselines are batch numpy implementations, so their throughput and memory (in `results.md`)
+  are not comparable to a streaming guard.
+
+**NAB official scorer** (NAB's own code at `ea702d7`, 16 NAB test series, normalised with the
+null detector on the same sub-corpus). Caveats:
+* Our detectors emit one detection at the end of each latched block and are scored at threshold
+  0.5 with **no** NAB threshold optimisation.
+* They are silent during the first 2,080 samples (the warm-up), so NAB windows there count as
+  misses.
+* The published NAB detectors are re-scored from NAB's result files with NAB's official
+  thresholds, which were optimised on the full corpus *with labels*.
+* The sub-corpus is not NAB's full corpus. This is **not** comparable to the public NAB
+  scoreboard.
+
+| Detector | standard | low FP | low FN |
+|---|---|---|---|
+| streamguard_diff | 34.57 | 23.43 | 40.22 |
+| streamguard_median | 21.98 | -2.7 | 31.82 |
+| streamguard_detrend | 29.44 | 15.3 | 35.79 |
+| cusum | -81.54 | -215.92 | -35.17 |
+| ewma | 28.48 | 5.2 | 38.18 |
+| zscore | 24.44 | 20.94 | 26.4 |
+| iforest | 37.77 | 31.0 | 42.35 |
+| sg_default | 31.33 | 22.78 | 36.04 |
+| oes_latch | 21.78 | -3.09 | 31.69 |
+| oes_fixed | -293.93 | -657.69 | -171.71 |
+| numenta | 79.68 | 72.75 | 84.43 |
+| windowedGaussian | 32.45 | 1.88 | 44.87 |
+| relativeEntropy | 53.19 | 46.96 | 56.67 |
+| knncad | 66.83 | 52.57 | 73.84 |
+| bayesChangePt | 18.5 | -6.72 | 34.76 |
+| random | 20.17 | 14.63 | 29.61 |
+
+On the NAB score, Isolation Forest (37.8) and StreamGuard `diff` (34.6) come out ahead of EWMA
+(28.5). The shipped default scores 31.3. All of our detectors are far below the published
+`numenta` (79.7) and `knncad` (66.8) detectors, and StreamGuard `median` (22.0) is close to
+NAB's `random` detector (20.2).
+
 ## Evidence tags
 
 Every number in this project is tagged **SYNTHETIC** (generated data, e.g. the demo and tests),
 **REPORTED** (measured on public data), **TARGET** (a goal) or **UNRUN** (planned, not run).
-Spec targets such as throughput of 100k blocks/s per core, memory under 10 MB per stream, and a
-false-latch rate of 1% or less on clean warm-up data are **TARGET** and have not been measured.
+Spec TARGETs against measurements:
+* throughput of 100k blocks/s per core: not met, 43,122 blocks/s REPORTED;
+* memory under 10 MB per stream: met, about 53 KiB peak REPORTED;
+* false-latch rate of 1% or less: not met, 1.73% SYNTHETIC held-out and 2.3% on NAB test
+  REPORTED.
 
 ## Scope and limits
 
 Research prototype. Not a certified safety system, not a diagnostic device and not a product.
-No quantum claims. Parity rebuild (M2), benchmarks (M4) and the LLM adapter (M5) are not in
-this milestone.
+No quantum claims. Parity rebuild (M2), streaming CLI extensions (M3) and the LLM adapter (M5)
+are not done yet.
 
 ## Roadmap
 
-* M1: scorer, latch, calibrator, stream guard, CLI, tests, CI (this release).
+* M1: scorer, latch, calibrator, stream guard, CLI, tests, CI (done).
 * M2: parity rebuild and erasure tests.
 * M3: streaming CLI extensions (MQTT input).
-* M4: benchmark suite vs CUSUM, EWMA, Isolation Forest, rolling z-score and oes512q-latch on
-  NAB / Yahoo S5 / SMD.
+* M4: benchmark vs CUSUM, EWMA, Isolation Forest, rolling z-score and oes512q-latch on NAB and
+  SMD (done, REPORTED above; Yahoo S5 not included for licence reasons).
 * M5: LLM output adapter, v0.1.0 release and Zenodo DOI.
 
 ## Citation and license

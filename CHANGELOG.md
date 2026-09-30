@@ -1,5 +1,40 @@
 # Changelog
 
+## Unreleased: post-M4 pivot, a fail-closed gate for any scorer
+
+Positioning changed after M4 lost: the value is the fail-closed, audited gate, not the score.
+
+- New `streamguard.scorers`: a small `Scorer` protocol (`start`, `warmup`, `fit`, `fit_fixed`,
+  `score`, `on_invalid`, `params`) with bounded state. Built-ins:
+  - `spark`: the original residual score with every reference mode.
+  - `ewma`: an EWMA control chart on the trailing-median residual, numpy only.
+  - `isoforest`: an optional scikit-learn adapter, fitted on the warm-up only, with a
+    fixed-size model (new extra `isoforest`).
+  Custom scorer objects are accepted too.
+- `StreamGuard(scorer=..., scorer_params=...)` and CLI `--scorer`, `--ewma-lambda`,
+  `--ref-window`, `--trees`. Validation, reason codes, calibration, drift and the audit log are
+  unchanged and shared by every scorer. `reference=` / `ref_blocks=` / `ewma_alpha=` without
+  `scorer=` select `spark`.
+- **Default changed**: scorer `ewma` (lambda 0.2, `ref_window` 288) and quantile 0.995 (was
+  `spark`/`diff`, 0.999). Chosen by a rule committed before it was run, on the M4 tuning splits
+  only: highest mean of the NAB and SMD tuning pooled F1 (`benchmarks/real/pivot.py choose`).
+- New optional `seq` argument, `process(block, seq=...)`, and new reason `SEQUENCE_GAP` for
+  dropped, repeated or reordered blocks.
+- Audit schema `v: 2`: the config record has `scorer` and `scorer_params` instead of flat
+  reference fields.
+- `benchmarks/real/gate.py` and `pivot.py` (REPORTED 2026-09-29, `pivot_results.json` / `.md`):
+  - The gate matches the raw EWMA and Isolation Forest baselines on the M4 test split with 0
+    flag disagreements (NAB 2,621 and SMD 10,071 blocks).
+  - New default test F1: NAB 0.246, SMD 0.190.
+  - Fault injection on the NAB test series: the gate latched 48/48 NaN, inf and short blocks
+    with reason codes. Raw EWMA and CUSUM were poisoned by one NaN, with 1,498 later blocks
+    admitted with NaN scores. Dropped blocks are caught only with `seq`.
+  - Throughput: `ewma` 27k blocks/s, `isoforest` 317 blocks/s.
+- The M4 section of the README, `results.json` and `run.py` are unchanged; `run.py` now pins the
+  M4 guard settings.
+- The demo and the SYNTHETIC sweeps pin the `spark` scorer they were written for. The README
+  documents that the `ewma` default does badly on the random-walk demo.
+
 ## Unreleased: milestone 4, real-data benchmark (REPORTED)
 
 - `benchmarks/real/`:

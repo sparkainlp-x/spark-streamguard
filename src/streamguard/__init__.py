@@ -1,7 +1,8 @@
-"""Spark StreamGuard: a streaming, fail-closed guardrail for numeric data in 32-value blocks.
+"""Spark StreamGuard: a fail-closed, auditable gate for any streaming detector.
 
-Research prototype (milestone 1). No benchmarks have been run yet; every performance figure
-in this project is TARGET or UNRUN.
+Blocks of 32 values are validated, scored by a pluggable scorer (``ewma`` by default, ``spark``,
+optional ``isoforest``, or your own), admitted or latched with a reason code, and logged.
+Research prototype; see the README for SYNTHETIC and REPORTED evidence.
 """
 
 from streamguard.calibrate import (

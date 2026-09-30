@@ -73,7 +73,8 @@ class Scorer(Protocol):
 
 
 def quantile_tau(scores: np.ndarray, quantile: float) -> float:
-    tau = float(np.quantile(scores, quantile, method="linear"))
+    with np.errstate(invalid="ignore", over="ignore"):
+        tau = float(np.quantile(scores, quantile, method="linear"))
     if not math.isfinite(tau) or tau < 0:
         raise CalibrationError(f"warm-up scores give no finite non-negative tau: {tau!r}")
     return tau
@@ -196,7 +197,8 @@ class _TrailingMedianScorer:
         if self._count == 0:
             self._push(x)
             return Reason.NO_REFERENCE
-        ref = float(np.median(self._buf[: self._count]))
+        with np.errstate(over="ignore", invalid="ignore"):
+            ref = float(np.median(self._buf[: self._count]))
         with np.errstate(over="ignore", invalid="ignore"):
             raw = x - ref
         self._push(x)
@@ -286,9 +288,10 @@ class EwmaScorer(_TrailingMedianScorer):
         self._z = 0.0
 
     def _block(self, r: np.ndarray) -> float:
-        z = self._W @ r + self._d * self._z
-        self._z = float(z[-1])
-        return float(np.abs(z).max() / self._c)
+        with np.errstate(over="ignore", invalid="ignore"):
+            z = self._W @ r + self._d * self._z
+            self._z = float(z[-1])
+            return float(np.abs(z).max() / self._c)
 
     def fit(self, quantile: float) -> TauCalibration:
         r = self._fit_scale()

@@ -50,13 +50,15 @@ from streamguard.scorers import Scorer, make_scorer
 # v2: the config record names the scorer ("scorer", "scorer_params") instead of flat
 # reference fields; decisions may carry the SEQUENCE_GAP reason.
 SCHEMA_VERSION = 2
-DEFAULT_SCORER = "spark"
+DEFAULT_SCORER = "ewma"
 
-# Stream defaults chosen by the SYNTHETIC warm-up x quantile sweep (benchmarks/warmup_sweep.py):
-# rule 2 (no setting reached a 1% false-latch rate; lowest rate with recall >= 90%).
+# Warm-up length: SYNTHETIC warm-up x quantile sweep (benchmarks/warmup_sweep.py, 0.1.0.dev0).
+# Scorer and quantile: pre-registered rule on the M4 tuning splits only (benchmarks/real/pivot.py
+# ``choose``): highest mean of NAB and SMD tuning-split pooled F1 -> ewma (lam=0.2,
+# ref_window=288), q=0.995. The 0.1.0.dev0 default was spark/diff with q=0.999.
 # calibrate_tau() keeps quantile 0.99 as its own default (parity with oes512q-latch).
 STREAM_WARMUP_BLOCKS = 64
-STREAM_QUANTILE = 0.999
+STREAM_QUANTILE = 0.995
 
 
 @dataclass(frozen=True)
@@ -123,9 +125,11 @@ class StreamGuard:
         ``None``: robust warm-up scale in calibrated mode, ``1.0`` in fixed mode.
         A positive real: use it as the residual divisor in both modes.
     scorer:
-        ``"spark"`` (default), ``"ewma"``, ``"isoforest"`` (needs scikit-learn), or any object
+        ``"ewma"``, ``"spark"``, ``"isoforest"`` (needs scikit-learn), or any object
         implementing the :class:`streamguard.scorers.Scorer` protocol. The gate (validation,
-        reason codes, calibration, drift, audit log) is identical for every scorer.
+        reason codes, calibration, drift, audit log) is identical for every scorer. ``None``
+        (default) means ``"spark"`` if one of the ``spark`` shortcuts below is given, else
+        :data:`DEFAULT_SCORER` (``"ewma"``, chosen on the M4 tuning splits).
     scorer_params:
         Keyword arguments for a built-in scorer given by name, e.g. ``{"lam": 0.2}`` for
         ``ewma``.
@@ -163,7 +167,7 @@ class StreamGuard:
         warmup_blocks: int = STREAM_WARMUP_BLOCKS,
         quantile: float = STREAM_QUANTILE,
         scale: float | None = None,
-        scorer: str | Scorer = DEFAULT_SCORER,
+        scorer: str | Scorer | None = None,
         scorer_params: dict[str, Any] | None = None,
         reference: str | float | ArrayLike | None = None,
         ref_blocks: int | None = None,
@@ -321,7 +325,7 @@ class StreamGuard:
 
 
 def _build_scorer(
-    scorer: str | Scorer,
+    scorer: str | Scorer | None,
     scorer_params: dict[str, Any] | None,
     reference: Any,
     ref_blocks: int | None,
@@ -330,6 +334,8 @@ def _build_scorer(
     shortcuts = {"reference": reference, "ref_blocks": ref_blocks, "ewma_alpha": ewma_alpha}
     shortcuts = {k: v for k, v in shortcuts.items() if v is not None}
     params = dict(scorer_params or {})
+    if scorer is None:
+        scorer = "spark" if shortcuts else DEFAULT_SCORER
     if isinstance(scorer, str):
         if shortcuts and scorer != "spark":
             raise ValueError(f"{sorted(shortcuts)} only apply to the 'spark' scorer")

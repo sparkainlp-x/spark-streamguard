@@ -1,19 +1,29 @@
 # Spark StreamGuard
 
-A small, streaming, **fail-closed** guardrail for numeric data. It reads a stream in blocks of
-32 values, scores each block against a reference, and either **admits** it or **latches**
-(blocks) it with a reason code. It can tune its own threshold from a warm-up window, keeps
-constant memory per stream and writes every decision to a JSONL audit log.
+**A fail-closed, auditable gate for any streaming detector.** StreamGuard reads a numeric
+stream in blocks of 32 values and wraps a pluggable anomaly scorer with the parts a scorer does
+not give you: input validation, reason codes, a self-calibrated threshold, optional sequence-gap
+detection, constant memory per stream and a JSONL audit log of every decision. Each block is
+either **admitted** or **latched** (blocked) with a reason code; anything it cannot score
+(NaN, inf, wrong length, non-numeric, overflow, not yet calibrated, missing block) latches.
 
-Status: research prototype, milestone 1 (`0.1.0.dev0`). Runtime dependency: numpy only.
-Python 3.10 to 3.13.
+Status: research prototype (`0.1.0.dev0`). Runtime dependency: numpy only (the optional
+`isoforest` scorer needs scikit-learn). Python 3.10 to 3.13.
 
-> **First real-data benchmark (milestone 4): StreamGuard does not beat the standard baselines.**
-> On NAB it is significantly worse than an EWMA control chart; on SMD all methods tie at a poor
-> level. See [Real-data benchmark (REPORTED)](#real-data-benchmark-reported). Other numbers in
+> **The M4 real-data benchmark was lost, and this is why the project changed focus.** The
+> original StreamGuard score (`spark`) is significantly worse than a plain EWMA control chart on
+> NAB and ties at a poor level on SMD; see
+> [Real-data benchmark (REPORTED)](#real-data-benchmark-reported). The value that remains is
+> the gate, not the score. The scorer is now pluggable; the default is an EWMA chart chosen by
+> a rule fixed in advance on the M4 tuning splits
+> ([Choosing a scorer](#choosing-a-scorer-reported-tuning-splits-only)). Wrapping a scorer in the
+> gate changes none of its test-set decisions on clean data
+> ([Gate vs raw detectors](#gate-vs-raw-detectors-on-the-m4-test-split-reported)). What the gate
+> adds is measured under fault injection
+> ([Robustness under faulty input](#robustness-under-faulty-input-reported)). Other numbers in
 > this README are SYNTHETIC (generated data) or TARGET/UNRUN.
 
-The scorer, latch rule and self-calibrated threshold are ported from
+The `spark` score, latch rule and self-calibrated threshold are ported from
 [oes512q-latch](https://github.com/sparkainlp-x/oes512q-latch) (v0.2.0) and cleaned up; a
 parity test checks the calibrated tau and scale against values produced by that repository.
 
@@ -32,95 +42,119 @@ from streamguard import StreamGuard, AuditLogWriter
 
 rng = np.random.default_rng(42)
 with AuditLogWriter("audit.jsonl") as log:
-    guard = StreamGuard(audit=log)  # defaults: diff reference, 64-block warm-up, q=0.999
-    for block in rng.normal(size=(200, 32)):
-        d = guard.process(block)  # Decision(index, admit, score, tau, reason, ...)
+    guard = StreamGuard(audit=log)  # defaults: ewma scorer, 64-block warm-up, q=0.995
+    log.write_record(guard.config())  # config line: scorer name and parameters
+    for seq, block in enumerate(rng.normal(size=(200, 32))):
+        d = guard.process(block, seq=seq)  # seq is optional; gaps latch SEQUENCE_GAP
         if not d.admit:
             print(d.index, d.reason.value, d.score)
 
-fixed = StreamGuard(tau=0.50)  # original fixed threshold, still available
+spark = StreamGuard(scorer="spark", reference="median")  # original score, any reference mode
+iso = StreamGuard(scorer="isoforest")  # needs scikit-learn (pip install ".[isoforest]")
+fixed = StreamGuard(tau=0.50, scorer="spark")  # original fixed-threshold contract
 ```
 
 Command line (reads a CSV file or stdin, writes JSONL to stdout, a summary to stderr):
 
 ```bash
 python -m streamguard data.csv --header --column value --audit-log audit.jsonl
+python -m streamguard data.csv --scorer spark --reference diff --quantile 0.999
 cat numbers.txt | python -m streamguard --tau 0.5
 ```
 
-Example run (fixed `tau = 0.5`, 4 blocks: one seed block, one quiet block, one block with a
-single unit spike, one block ending in `nan`). Output actually observed:
+Example run (default `ewma` scorer with a fixed `tau = 0.5`, 4 blocks: one seed block, one
+quiet block, one block ending in a single 0.99 spike, one block ending in `nan`). Output actually
+observed:
 
 ```text
 $ python -m streamguard --tau 0.5 < numbers.txt
 streamguard: 4 blocks, 1 admitted, 3 latched, tau=0.5
-{"type": "config", "v": 1, "mode": "fixed", "tau": 0.5, "warmup_blocks": null, "quantile": 0.99, "scale": null, "reference": "diff", "drift_rate": 0.0, "drift_max_rel": 0.25, "block": 32}
-{"type": "decision", "v": 1, "i": 0, "admit": false, "latch": 1, "score": null, "tau": 0.5, "reason": "NO_REFERENCE", "peak": null, "event": null, "tau_next": null}
-{"type": "decision", "v": 1, "i": 1, "admit": true, "latch": 0, "score": 0.0, "tau": 0.5, "reason": "OK", "peak": 0.0, "event": null, "tau_next": null}
-{"type": "decision", "v": 1, "i": 2, "admit": false, "latch": 1, "score": 0.5129406249202847, "tau": 0.5, "reason": "SCORE_OVER_TAU", "peak": 0.99, "event": null, "tau_next": null}
-{"type": "decision", "v": 1, "i": 3, "admit": false, "latch": 1, "score": null, "tau": 0.5, "reason": "NAN_INPUT", "peak": null, "event": null, "tau_next": null}
+{"type": "config", "v": 2, "mode": "fixed", "tau": 0.5, "warmup_blocks": null, "quantile": 0.995, "scale": null, "scorer": "ewma", "scorer_params": {"lam": 0.2, "ref_window": 288}, "drift_rate": 0.0, "drift_max_rel": 0.25, "block": 32}
+{"type": "decision", "v": 2, "i": 0, "admit": false, "latch": 1, "score": null, "tau": 0.5, "reason": "NO_REFERENCE", "peak": null, "event": null, "tau_next": null}
+{"type": "decision", "v": 2, "i": 1, "admit": true, "latch": 0, "score": 0.0, "tau": 0.5, "reason": "OK", "peak": 0.0, "event": null, "tau_next": null}
+{"type": "decision", "v": 2, "i": 2, "admit": false, "latch": 1, "score": 0.594, "tau": 0.5, "reason": "SCORE_OVER_TAU", "peak": 0.99, "event": null, "tau_next": null}
+{"type": "decision", "v": 2, "i": 3, "admit": false, "latch": 1, "score": null, "tau": 0.5, "reason": "NAN_INPUT", "peak": null, "event": null, "tau_next": null}
 ```
 
-The first line of stdout is a `config` record; each following line is one `decision` record
-with the keys `type, v, i, admit, latch, score, tau, reason, peak, event, tau_next`.
-Non-finite numbers are written as `null`, so every line is strict JSON.
+The first line of stdout is a `config` record (schema `v: 2`: it names the `scorer` and its
+`scorer_params`); each following line is one `decision` record with the keys
+`type, v, i, admit, latch, score, tau, reason, peak, event, tau_next`. Non-finite numbers are
+written as `null`, so every line is strict JSON. The CLI chunks a flat value stream, so it cannot
+see a missing sample or block; use `process(block, seq=...)` from a framed producer for that.
 
 ## How it works
 
-For each block `x` (exactly 32 finite values) and a reference `x_ref`:
+### The gate (the same for every scorer)
 
-* residual `r_j = (x_j - x_ref_j) / scale`, `j = 0..31`; the block residual is
-  `R = max_j |x_j - x_ref_j|` (reported, scaled, as `peak`);
-* `Peak = max_j |r_j|`, `RMS = sqrt(mean_j r_j^2)`, `MeanAbs = mean_j |r_j|`, all three over the
-  same 32 residuals of that one block (same definitions as `oes32_hilbert_hook.block_score` in
-  oes512q-latch);
-* score `S = 0.45*Peak + 0.35*RMS + 0.20*MeanAbs` (so `MeanAbs <= S <= Peak`);
-* **latch iff `S >= tau`** (equality latches).
+For every block, in this order:
 
-Reference modes (`reference=` / `--reference`), all with O(1) state per stream:
+1. **Sequence check** (only if the caller passes `seq`): a block whose `seq` is not the previous
+   `seq + 1` (dropped, repeated or reordered) latches with `SEQUENCE_GAP`, is not scored, and
+   resets the scorer like an invalid block.
+2. **Validation**: exactly 32 finite real numbers, else `NAN_INPUT`, `INF_INPUT`, `BAD_SHAPE`
+   (wrong length, empty, wrong dimensions) or `BAD_TYPE` (non-numeric, boolean, unparseable CLI
+   token). Invalid blocks never reach the scorer's state, the warm-up buffer or tau.
+3. **Warm-up** (self-calibrated mode, the default): the scorer consumes `warmup_blocks` valid
+   blocks (latched, `NOT_CALIBRATED`; a scorer that needs history latches its first block with
+   `NO_REFERENCE`). Then the scorer fixes its scale/model and `tau` = the `quantile` (type 7 /
+   numpy `linear`) of its own warm-up block scores (`event = "CALIBRATED"`). If that fails (for
+   example constant data), the block latches with `CALIBRATION_FAILED` and warm-up restarts.
+   Nothing is admitted before a tau exists. Defaults: `warmup_blocks = 64` (SYNTHETIC sweep),
+   `quantile = 0.995` (chosen with the scorer, see below); with them nothing is admitted until
+   65 valid blocks (2,080 samples) have been seen.
+4. **Scoring**: admit iff `S < tau` (equality latches, `SCORE_OVER_TAU`). A score that is not a
+   finite number latches with `NONFINITE_SCORE`; a scorer can also report `NO_REFERENCE`.
+5. **Optional bounded drift** (`DriftConfig(rate, max_rel)`, off by default): on every scored
+   block `tau += rate * tau0 * (hit - (1 - q))`, clamped to `tau0 * [1 - max_rel, 1 + max_rel]`.
+   Every change is logged with `event = "TAU_DRIFT"` and `tau_next`.
+6. **Audit**: every decision can be written to an append-only JSONL log (`AuditLogWriter`).
+
+Fixed mode (`StreamGuard(tau=0.50)`) skips the warm-up and uses `scale = 1.0`. The 0.50 default
+of the original contract is known to behave poorly on real data (in the oes512q-latch NAB
+benchmark it behaved like flagging every block, REPORTED there).
+
+Reason codes: `OK` (the only admitting code), `SCORE_OVER_TAU`, `NAN_INPUT`, `INF_INPUT`,
+`BAD_SHAPE`, `BAD_TYPE`, `NONFINITE_SCORE`, `NO_REFERENCE`, `NOT_CALIBRATED`,
+`CALIBRATION_FAILED`, `BAD_TAU`, `SEQUENCE_GAP`. In the CLI a trailing partial block is emitted
+and latches with `BAD_SHAPE`.
+
+### Scorers
+
+`scorer=` / `--scorer`. Each keeps O(1) or bounded state per stream:
+
+| Scorer | Block score | State per stream |
+|---|---|---|
+| `ewma` (**default**) | EWMA control chart on the trailing-median residual `r = (x - median of the last ref_window samples) / scale`: `z_t = lam*r_t + (1 - lam)*z_(t-1)`, block score `max_t abs(z_t) / sqrt(lam/(2 - lam))`. `lam = 0.2`, `ref_window = 288` samples. numpy only | `ref_window` ring buffer, 1 float, a 32x32 matrix |
+| `spark` | the original score (below) against a reference mode | see reference modes |
+| `isoforest` | scikit-learn IsolationForest (100 trees, seed 42) fitted on the scaled warm-up residual blocks only; score `-score_samples`. Optional (`pip install ".[isoforest]"`) | fixed-size model: 100 trees on at most `min(256, warmup_blocks)` samples each |
+| your own | any object with `name`, `start`, `warmup`, `fit`, `fit_fixed`, `score`, `on_invalid`, `params` (see `streamguard.scorers.Scorer`) | yours |
+
+`scale` is the robust warm-up scale: `1.4826 * MAD` of all warm-up residuals (fallback
+`sqrt(pi/2) * mean absolute deviation`; fail-closed if both are 0). Passing `reference=`,
+`ref_blocks=` or `ewma_alpha=` without `scorer=` selects `spark`, so pre-pivot code keeps its
+behaviour except for the default quantile.
+
+**`spark` score.** For each block `x` and a reference `x_ref`: residual
+`r_j = (x_j - x_ref_j) / scale`; `Peak = max_j |r_j|`, `RMS = sqrt(mean_j r_j^2)`,
+`MeanAbs = mean_j |r_j|` over the 32 residuals of that block (same definitions as
+`oes32_hilbert_hook.block_score` in oes512q-latch); `S = 0.45*Peak + 0.35*RMS + 0.20*MeanAbs`.
+Reference modes (`reference=` / `--reference`):
 
 | Mode | `x_ref` for a block | State |
 |---|---|---|
-| `diff` (**default**) | first difference: `[last sample of the previous block, x_0, ..., x_30]`, so `r_j = x_j - x_{j-1}`. An invalid block resets it, so the next valid block latches with `NO_REFERENCE` instead of scoring a difference across the gap | 1 float |
+| `diff` (spark default) | first difference: `[last sample of the previous block, x_0, ..., x_30]`. An invalid block resets it, so the next valid block latches with `NO_REFERENCE` | 1 float |
 | `detrend` | least-squares line fitted to the block itself | none |
-| `ewma` | exponentially weighted level of earlier samples (`--ewma-alpha`, default 0.05), constant across the block | 1 float |
-| `median` | median of the last `ref_blocks * 32` valid samples (`--ref-blocks`, default 4), constant across the block. The oes512q-latch benchmark reference and the default in the first M1 commit; `"trailing_median"` is accepted as an alias | ring buffer |
+| `ewma` | exponentially weighted level of earlier samples (`--ewma-alpha`, default 0.05) | 1 float |
+| `median` | median of the last `ref_blocks * 32` valid samples (`--ref-blocks`, default 4); alias `"trailing_median"` | ring buffer |
 | scalar / 32-vector | given by the caller | the value |
 
-Warm-up calibration always uses the same reference mode as scoring. `diff`, `ewma` and
-`median` need one seed block (`NO_REFERENCE`); `detrend` does not. Why `diff` is the default:
-see [Choosing the reference](#choosing-the-reference-synthetic).
+The `ewma` and `isoforest` scorers keep their trailing history across an invalid block (they do
+not reset); the `spark`/`diff` reference does.
 
-Threshold:
-
-* **Self-calibrated (default).** After `warmup_blocks` valid blocks: `scale = 1.4826 * MAD`
-  of all warm-up residuals (fallback `sqrt(pi/2) * mean absolute deviation`, and fail-closed if
-  both are 0), then `tau` = the `quantile` (type 7 / numpy `linear`) of the warm-up block
-  scores. Deterministic, label-free. `StreamGuard` / CLI defaults: `warmup_blocks = 64`,
-  `quantile = 0.999`, chosen by a SYNTHETIC sweep (see
-  [Choosing warm-up and quantile](#choosing-warm-up-and-quantile-synthetic)). With 64 blocks,
-  the 0.999 quantile is close to the largest warm-up score. The lower-level `calibrate_tau()`
-  keeps 0.99 as its own default, as in oes512q-latch. With the defaults nothing is admitted
-  until 65 valid blocks (2,080 samples) have been seen.
-* **Fixed.** `StreamGuard(tau=0.50)` uses `scale = 1.0`. The 0.50 default is known to behave
-  poorly on real data (in the oes512q-latch NAB benchmark it behaved like flagging every block,
-  REPORTED there), which is why the
-  calibrated mode is the default.
-* **Optional bounded drift** (`DriftConfig(rate, max_rel)`, off by default): on every scored
-  block `tau += rate * tau0 * (hit - (1 - q))`, clamped to `tau0 * [1 - max_rel, 1 + max_rel]`.
-  Every change is logged with `event = "TAU_DRIFT"` and `tau_next`.
-
-Fail-closed reason codes: `OK` (the only admitting code), `SCORE_OVER_TAU`, `NAN_INPUT`,
-`INF_INPUT`, `BAD_SHAPE` (wrong length, empty, wrong dimensions), `BAD_TYPE` (non-numeric,
-boolean, unparseable CLI token), `NONFINITE_SCORE` (overflow), `NO_REFERENCE` (first block that
-seeds the reference), `NOT_CALIBRATED` (warm-up), `CALIBRATION_FAILED`, `BAD_TAU`.
-Invalid blocks never update the reference, the warm-up buffer or tau. In the CLI a trailing
-partial block is emitted and latches with `BAD_SHAPE`.
-
-Memory: each `StreamGuard` holds only fixed-size state allocated at construction (the
-reference model above and a `(warmup_blocks, 32)` warm-up buffer that is released after
-calibration). Tests run 12,000 to 20,000 blocks per reference mode under `tracemalloc` and
-check there is no growth.
+Memory: each `StreamGuard` holds only fixed-size state allocated at construction (the scorer
+state above and a `(warmup_blocks, 32)` warm-up buffer that is released after calibration).
+Tests run thousands of blocks per scorer and reference mode under `tracemalloc` and check there
+is no growth.
 
 ## Mapping of the original ideas
 
@@ -129,7 +163,7 @@ original label fails this project's claim filter.
 
 | Original idea | Real feature | Status in this repo |
 |---|---|---|
-| Membrane | Admit/latch gate on every block. Invalid input (NaN, wrong shape) = latch. Fail-closed. | M1: implemented |
+| Membrane | Admit/latch gate on every block. Invalid input (NaN, wrong shape) = latch. Fail-closed. | M1: implemented; post-M4: wraps any scorer, optional `SEQUENCE_GAP` check |
 | Loop | Closed-loop threshold: tau self-calibrates from a warm-up window and drifts slowly with a bounded update rule. Every change is logged. | M1: implemented |
 | Redundancy frame | 512-value frame = 16 blocks x 32 with parity blocks, so up to k missing blocks can be rebuilt. Measured by erasure tests. | M2: not started |
 | Unbounded streaming | O(1) memory per stream, runs indefinitely on unbounded input. | M1: implemented (constant-memory test) |
@@ -139,10 +173,10 @@ original label fails this project's claim filter.
 
 `examples/synthetic_demo.py`: a seeded (42) Gaussian random walk of 80 blocks x 32 samples
 (step sd 0.1), with one +8.0 spike injected into blocks 30, 47 and 63 and a single `NaN` in
-block 70. The series, seed and spikes are unchanged from the first M1 commit. It uses the default
-`diff` reference and default quantile (0.999), but keeps `warmup_blocks=16`: the series is only
-80 blocks long, and the 64-block default warm-up would cover two of the spikes. Output actually
-observed (**SYNTHETIC**):
+block 70. The series, seed and spikes are unchanged from the first M1 commit. It pins the
+`spark` scorer with the `diff` reference and q=0.999 (the 0.1.0.dev0 defaults this demo was
+written for) and keeps `warmup_blocks=16`: the series is only 80 blocks long, and the 64-block
+default warm-up would cover two of the spikes. Output actually observed (**SYNTHETIC**):
 
 ```text
 $ python examples/synthetic_demo.py
@@ -163,7 +197,15 @@ that fix it scored a difference across the gap and latched as `SCORE_OVER_TAU`. 
 demo: 22 false latches with the original 4-block `median` reference, 3 with `diff` at q=0.99, 2
 after the reset fix, 1 at q=0.999.
 
+**The new default `ewma` scorer does badly on this demo** (SYNTHETIC, `warmup_blocks=16`,
+q=0.995): it latches 37 of the 62 post-warm-up blocks and misses the spike in block 30. Its
+trailing-median residual treats random-walk drift as a level shift, and the EWMA smooths a
+single-sample spike. The default was chosen on real data (next sections), not on this demo; pick
+the scorer for your data.
+
 ## Choosing the reference (SYNTHETIC)
+
+This section and the next two predate the pivot and apply to the `spark` scorer.
 
 `benchmarks/synthetic_reference_eval.py` compares the modes on the demo series above and on 24
 more generated series (seeds derived from 42): 6 each of random walk, sine plus noise,
@@ -361,11 +403,160 @@ On held-out data the chosen setting keeps recall at 98.8% and cuts false latches
 `median` stays available (`reference="median"`, `--reference median`) for data where a level
 reference fits better, for example stationary data with slow anomalies.
 
+## Choosing a scorer (REPORTED, tuning splits only)
+
+After M4, the default scorer was re-chosen by a rule **written down and committed before it was
+run** (`benchmarks/real/pivot.py`, phase `choose`, 2026-09-29), using only the M4 tuning splits
+(NAB 16 series, SMD 14 machines; same data, split, warm-up and metrics as M4):
+
+* candidates: the numpy-only built-in scorers with shipped parameters, `spark` with `diff`,
+  `median`, `detrend`, and `ewma` with lambda in {0.1, 0.2, 0.3} (`ref_window = 288`), each with
+  q in {0.99, 0.995, 0.999}, `warmup_blocks = 64`;
+* criterion: the mean of NAB and SMD tuning-split pooled F1 (each dataset weighted 1/2); ties go
+  to the earlier candidate; `isoforest` is excluded because it is an optional dependency;
+* every number goes through `StreamGuard.process`, block by block.
+
+| Candidate | q | NAB tune F1 | SMD tune F1 | Mean |
+|---|---|---|---|---|
+| spark (reference=diff) | 0.99 | 0.158 | 0.185 | 0.1718 |
+| spark (reference=diff) | 0.995 | 0.141 | 0.193 | 0.1672 |
+| spark (reference=diff) | 0.999 | 0.141 | 0.198 | 0.1695 |
+| spark (reference=median) | 0.99 | 0.202 | 0.180 | 0.1912 |
+| spark (reference=median) | 0.995 | 0.200 | 0.184 | 0.1918 |
+| spark (reference=median) | 0.999 | 0.201 | 0.186 | 0.1937 |
+| spark (reference=detrend) | 0.99 | 0.132 | 0.186 | 0.1591 |
+| spark (reference=detrend) | 0.995 | 0.131 | 0.194 | 0.1627 |
+| spark (reference=detrend) | 0.999 | 0.127 | 0.198 | 0.1626 |
+| ewma (lam=0.1, ref_window=288) | 0.99 | 0.227 | 0.171 | 0.1992 |
+| ewma (lam=0.1, ref_window=288) | 0.995 | 0.227 | 0.174 | 0.2006 |
+| ewma (lam=0.1, ref_window=288) | 0.999 | 0.226 | 0.177 | 0.2015 |
+| ewma (lam=0.2, ref_window=288) | 0.99 | 0.228 | 0.176 | 0.2020 |
+| ewma (lam=0.2, ref_window=288) **(chosen)** | 0.995 | 0.227 | 0.181 | 0.2038 |
+| ewma (lam=0.2, ref_window=288) | 0.999 | 0.217 | 0.183 | 0.2001 |
+| ewma (lam=0.3, ref_window=288) | 0.99 | 0.215 | 0.177 | 0.1957 |
+| ewma (lam=0.3, ref_window=288) | 0.995 | 0.214 | 0.179 | 0.1967 |
+| ewma (lam=0.3, ref_window=288) | 0.999 | 0.210 | 0.183 | 0.1964 |
+
+Winner: **`ewma`, lambda = 0.2, `ref_window = 288`, q = 0.995**, now the library and CLI default.
+The margins are small (0.2038 against 0.2020 for q = 0.99) and nothing here is a significance
+test. Caveat: the M4 tuning numbers for the raw EWMA baseline were already public when the rule
+was written, so the rule was not blind to the fact that EWMA did well on NAB.
+
+## Gate vs raw detectors on the M4 test split (REPORTED)
+
+The M4 test protocol, run once (`pivot.py test`): StreamGuard wrapped around `ewma` and
+`isoforest`, with the settings M4 tuned for the raw EWMA chart and Isolation Forest (per
+dataset; the trailing-median window is M4's per-series `L`), next to the same raw baselines
+recomputed by the M4 code.
+
+| Dataset | Detector (M4-tuned setting) | Raw F1 | Gate F1 | Raw AP | Gate AP | Flag disagreements |
+|---|---|---|---|---|---|---|
+| NAB | EWMA chart (lam=0.2) q=0.99 | 0.272 | 0.272 | 0.369 | 0.369 | 0 / 2621 |
+| NAB | Isolation Forest q=0.99 | 0.251 | 0.251 | 0.392 | 0.392 | 0 / 2621 |
+| NAB | new default: ewma (lam=0.2, ref_window=288) q=0.995 | | 0.246 | | 0.355 | |
+| SMD | EWMA chart (lam=0.2) q=0.999 | 0.192 | 0.192 | 0.496 | 0.496 | 0 / 10071 |
+| SMD | Isolation Forest q=0.999 | 0.179 | 0.179 | 0.345 | 0.345 | 0 / 10071 |
+| SMD | new default: ewma (lam=0.2, ref_window=288) q=0.995 | | 0.190 | | 0.503 | |
+
+On clean data **the gate changes no test decision**: 0 flag disagreements over 2,621 NAB and
+10,071 SMD evaluation blocks, identical F1 and AP to the M4 raw rows. So wrapping costs no
+accuracy, but it also adds none: StreamGuard+ewma is exactly as good (and as limited) as an EWMA
+chart. The new default (fixed parameters, q = 0.995) reaches NAB test F1 0.246 (the M4 default
+reached 0.161; M4's tuned raw EWMA 0.272) and SMD 0.190. The default was not tested for
+significance against the baselines.
+
+## Robustness under faulty input (REPORTED)
+
+`pivot.py robust`, on the 16 NAB test series with seed 42: for each fault type, a separate run
+per series with 3 faults at distinct evaluation blocks.
+
+* `nan` / `inf`: one sample of the block set to NaN / +inf.
+* `short`: one sample of the block missing. `drop`: the whole 32-sample block missing.
+* **Raw baselines** (the M4 implementations, M4-tuned NAB settings) consume the faulted *sample
+  stream*, their natural input, and flag `score >= tau`; a NaN score compares false and is
+  admitted. For `short` and `drop` every later sample shifts, so a fault is "flagged" only if the
+  block at the splice latches.
+* **StreamGuard** (q = 0.99, same scorers) consumes producer-framed blocks: `short` arrives as a
+  31-value block, `drop` as a missing block, with and without `seq` numbers.
+* "Clean-block decision changes": evaluation blocks without a fault whose admit/latch decision
+  differs from the fault-free run (n/a where the raw stream is shifted).
+
+| Fault | Method | Crashed series | Faults flagged | Non-finite scores admitted | Clean-block decision changes | Reason codes at faults |
+|---|---|---|---|---|---|---|
+| nan | EWMA chart (lam=0.2, q=0.99) | 0 | 0 / 48 | 1498 | 177 | - |
+| nan | CUSUM (k=2.0, q=0.99) | 0 | 0 / 48 | 1498 | 587 | - |
+| nan | Rolling z-score (window=64, q=0.99) | 0 | 0 / 48 | 0 | 2 | - |
+| nan | Isolation Forest (q=0.99) | 0 | 1 / 48 | 0 | 16 | - |
+| nan | StreamGuard+ewma (lam=0.2, q=0.99) | 0 | 48 / 48 | 0 | 1 | NAN_INPUT 48 |
+| nan | StreamGuard+spark (diff, q=0.99) | 0 | 48 / 48 | 0 | 45 | NAN_INPUT 48 |
+| nan | StreamGuard+isoforest (q=0.99) | 0 | 48 / 48 | 0 | 0 | NAN_INPUT 48 |
+| inf | EWMA chart (lam=0.2, q=0.99) | 0 | 0 / 48 | 2104 | 193 | - |
+| inf | CUSUM (k=2.0, q=0.99) | 0 | 48 / 48 | 0 | 1298 | - |
+| inf | Rolling z-score (window=64, q=0.99) | 0 | 47 / 48 | 0 | 2 | - |
+| inf | Isolation Forest (q=0.99) | 0 | 5 / 48 | 0 | 0 | - |
+| inf | StreamGuard+ewma (lam=0.2, q=0.99) | 0 | 48 / 48 | 0 | 1 | INF_INPUT 48 |
+| inf | StreamGuard+spark (diff, q=0.99) | 0 | 48 / 48 | 0 | 47 | INF_INPUT 48 |
+| inf | StreamGuard+isoforest (q=0.99) | 0 | 48 / 48 | 0 | 1 | INF_INPUT 48 |
+| short | EWMA chart (lam=0.2, q=0.99) | 0 | 8 / 48 | 0 | n/a | - |
+| short | CUSUM (k=2.0, q=0.99) | 0 | 20 / 48 | 0 | n/a | - |
+| short | Rolling z-score (window=64, q=0.99) | 0 | 1 / 48 | 0 | n/a | - |
+| short | Isolation Forest (q=0.99) | 0 | 4 / 48 | 0 | n/a | - |
+| short | StreamGuard+ewma (lam=0.2, q=0.99) | 0 | 48 / 48 | 0 | 3 | BAD_SHAPE 48 |
+| short | StreamGuard+spark (diff, q=0.99) | 0 | 48 / 48 | 0 | 45 | BAD_SHAPE 48 |
+| short | StreamGuard+isoforest (q=0.99) | 0 | 48 / 48 | 0 | 2 | BAD_SHAPE 48 |
+| drop | EWMA chart (lam=0.2, q=0.99) | 0 | 4 / 48 | 0 | n/a | - |
+| drop | CUSUM (k=2.0, q=0.99) | 0 | 21 / 48 | 0 | n/a | - |
+| drop | Rolling z-score (window=64, q=0.99) | 0 | 3 / 48 | 0 | n/a | - |
+| drop | Isolation Forest (q=0.99) | 0 | 3 / 48 | 0 | n/a | - |
+| drop | StreamGuard+ewma (lam=0.2, q=0.99) | 0 | 4 / 48 | 0 | 3 | OK 44, SCORE_OVER_TAU 4 |
+| drop | StreamGuard+ewma (lam=0.2, q=0.99) +seq | 0 | 48 / 48 | 0 | 4 | SEQUENCE_GAP 48 |
+| drop | StreamGuard+spark (diff, q=0.99) | 0 | 2 / 48 | 0 | 0 | OK 46, SCORE_OVER_TAU 2 |
+| drop | StreamGuard+spark (diff, q=0.99) +seq | 0 | 48 / 48 | 0 | 43 | SEQUENCE_GAP 48 |
+| drop | StreamGuard+isoforest (q=0.99) | 0 | 3 / 48 | 0 | 1 | OK 45, SCORE_OVER_TAU 3 |
+| drop | StreamGuard+isoforest (q=0.99) +seq | 0 | 48 / 48 | 0 | 3 | SEQUENCE_GAP 48 |
+
+What this shows:
+
+* **No method crashed.** scikit-learn 1.9's IsolationForest accepts NaN, so the expected crash
+  did not happen: it silently scored the faulted blocks and flagged 1 of 48 NaN faults.
+* **Raw EWMA and CUSUM are poisoned by one bad sample.** After a NaN, their state stays NaN for
+  the rest of the series, so every later block is admitted with a NaN score (1,498 blocks per
+  detector). After an inf, EWMA goes NaN the same way (2,104 blocks), and CUSUM latches every
+  later block (1,298 clean blocks change to latched). The M4 rolling z-score maps NaN to a score
+  of 0, so NaN faults pass silently.
+* **The gate latched every NaN, inf and short block (48/48 each) with the matching reason code,
+  and admitted no non-finite score.** Clean-block decisions barely moved for `ewma` and
+  `isoforest` (0 to 4 changes). `spark`/`diff` changes about 45 clean blocks per fault type,
+  because its reset latches the block after every fault with `NO_REFERENCE`.
+* **A dropped block is invisible without sequence numbers**, to the gate as much as to the raw
+  detectors (StreamGuard flagged 2 to 4 of 48, only when the next block happened to score high).
+  With `seq`, all 48 latch with `SEQUENCE_GAP`. The CLI reads a flat value stream and cannot
+  detect drops.
+* The raw baselines are our own batch implementations without input checks; a production
+  detector may validate its input. The measured difference is that validation, framing checks
+  and reason codes come built in and logged, independent of the scorer, not that the gate
+  detects anomalies better.
+
+Throughput and memory of the gate per scorer (`pivot.py perf`, one thread, all 9,141 NAB blocks
+per scorer, one stream per series):
+
+| Gate + scorer | Blocks | Blocks/s | Retained bytes | Peak bytes |
+|---|---|---|---|---|
+| ewma (default: lam=0.2, ref_window=288, q=0.995) | 9141 | 27,373 | 12,756 | 64,872 |
+| spark (diff, q=0.999; 0.1.0.dev0 default) | 9141 | 40,319 | 1,584 | 53,628 |
+| isoforest (100 trees, q=0.99) | 9141 | 317 | 375,486 | 1,020,505 |
+
+The `ewma` default is slower than the old `spark` default (27k against 40k blocks/s, both below
+the 100k TARGET), and `isoforest` is about 100 times slower, since it calls scikit-learn for every
+block.
+
 ## Real-data benchmark (REPORTED)
 
 Run on 2026-09-29 with StreamGuard 0.1.0.dev0 (`benchmarks/real/`,
 results in `benchmarks/real/results.json` and `results.md`). **REPORTED**: public data, this
-code, settings chosen on tuning splits only.
+code, settings chosen on tuning splits only. This section is kept unchanged after the pivot:
+"StreamGuard" here is the `spark` scorer, and "default" is the 0.1.0.dev0 default (`spark`/`diff`,
+q = 0.999).
 
 **Data.**
 * **NAB** at commit `ea702d7` (47 labelled real series; SHA-256 manifest).
@@ -541,10 +732,13 @@ NAB's `random` detector (20.2).
 Every number in this project is tagged **SYNTHETIC** (generated data, e.g. the demo and tests),
 **REPORTED** (measured on public data), **TARGET** (a goal) or **UNRUN** (planned, not run).
 Spec TARGETs against measurements:
-* throughput of 100k blocks/s per core: not met, 43,122 blocks/s REPORTED;
-* memory under 10 MB per stream: met, about 53 KiB peak REPORTED;
-* false-latch rate of 1% or less: not met, 1.73% SYNTHETIC held-out and 2.3% on NAB test
-  REPORTED.
+* throughput of 100k blocks/s per core: not met. REPORTED: 43,122 blocks/s for the M4 `spark`
+  default; after the pivot 27,373 blocks/s for the `ewma` default and 317 for `isoforest`;
+* memory under 10 MB per stream: met. REPORTED peak: about 53 KiB (`spark`), 63 KiB (`ewma`),
+  1.0 MB (`isoforest`);
+* false-latch rate of 1% or less: not met. 1.73% SYNTHETIC held-out (`spark`); REPORTED on the
+  NAB test split: 2.3% for the M4 default, 3.1% for the new `ewma` default (72 of 2,344
+  negative evaluation blocks); on SMD 43.8% for the new default.
 
 ## Scope and limits
 
@@ -559,6 +753,8 @@ are not done yet.
 * M3: streaming CLI extensions (MQTT input).
 * M4: benchmark vs CUSUM, EWMA, Isolation Forest, rolling z-score and oes512q-latch on NAB and
   SMD (done, REPORTED above; Yahoo S5 not included for licence reasons).
+* Post-M4 pivot: pluggable scorers (`spark`, `ewma`, `isoforest`, custom), default re-chosen on
+  tuning splits, gate-vs-raw check and fault-injection benchmark (done, REPORTED above).
 * M5: LLM output adapter, v0.1.0 release and Zenodo DOI.
 
 ## Citation and license

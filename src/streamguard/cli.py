@@ -127,9 +127,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument(
         "--scorer",
         choices=sorted(SCORERS),
-        default=DEFAULT_SCORER,
-        help=f"block scorer wrapped by the gate (default {DEFAULT_SCORER}); isoforest needs "
-        "scikit-learn",
+        default=None,
+        help=f"block scorer wrapped by the gate (default {DEFAULT_SCORER}, or spark when a "
+        "spark option such as --reference is given); isoforest needs scikit-learn",
     )
     p.add_argument(
         "--reference",

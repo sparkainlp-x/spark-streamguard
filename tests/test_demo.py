@@ -20,7 +20,7 @@ def test_demo_latches_spikes_and_nan(capsys):
     demo.main()
     out = capsys.readouterr().out
     assert out.startswith("SYNTHETIC demo")
-    g = StreamGuard(warmup_blocks=demo.WARMUP)
+    g = StreamGuard(warmup_blocks=demo.WARMUP, scorer="spark", quantile=0.999)
     ds = [g.process(b) for b in demo.make_series().reshape(demo.N_BLOCKS, 32)]
     for b in demo.SPIKE_BLOCKS:
         assert ds[b].reason.value == "SCORE_OVER_TAU"

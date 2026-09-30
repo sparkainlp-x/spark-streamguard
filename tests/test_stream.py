@@ -87,7 +87,7 @@ def test_invalid_input_latches_in_every_state(rng, bad, reason):
 
 
 def test_invalid_blocks_do_not_count_toward_warmup(rng):
-    g = StreamGuard(warmup_blocks=4)
+    g = StreamGuard(warmup_blocks=4, reference="diff")
     g.process(quiet(rng)[0])
     for _ in range(10):
         g.process([NAN] * 32)
@@ -154,7 +154,7 @@ def test_drift_is_bounded_and_logged(rng):
 
 
 def test_streaming_memory_is_constant(rng):
-    g = StreamGuard(warmup_blocks=8, drift=DriftConfig(rate=0.01))
+    g = StreamGuard(warmup_blocks=8, drift=DriftConfig(rate=0.01), reference="diff")
     data = rng.normal(size=(20_000, 32))
     for b in data[:500]:
         g.process(b)
@@ -272,5 +272,6 @@ def test_config_fixed_vector_reference():
 def test_stream_defaults():
     g = StreamGuard()
     cfg = g.config()
-    assert cfg["warmup_blocks"] == 64 and cfg["quantile"] == 0.999
-    assert cfg["scorer"] == "spark" and cfg["scorer_params"]["reference"] == "diff"
+    assert cfg["warmup_blocks"] == 64 and cfg["quantile"] == 0.995
+    assert cfg["scorer"] == "ewma" and cfg["scorer_params"] == {"lam": 0.2, "ref_window": 288}
+    assert StreamGuard(scorer="spark").config()["scorer_params"]["reference"] == "diff"

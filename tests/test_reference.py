@@ -23,7 +23,7 @@ NAN = float("nan")
 def test_default_is_diff():
     assert DEFAULT_REFERENCE == "diff"
     assert MODES == ("median", "ewma", "detrend", "diff")
-    assert StreamGuard().config()["scorer_params"]["reference"] == "diff"
+    assert StreamGuard(scorer="spark").config()["scorer_params"]["reference"] == "diff"
 
 
 def test_make_reference_types_and_alias():

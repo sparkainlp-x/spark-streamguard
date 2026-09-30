@@ -54,7 +54,7 @@ import gate as G
 import protocol as P
 from data import LOADERS
 from download import cache_dir
-from run import git_commit
+from run import git_commit, memory_profile, streaming_throughput
 
 HERE = Path(__file__).resolve().parent
 OUT = HERE / "pivot_results.json"
@@ -402,18 +402,136 @@ def phase_robust(data, pool) -> dict:
     return out
 
 
+# --------------------------------------------------------------------------- perf
+
+PERF = [
+    ("ewma (default: lam=0.2, ref_window=288, q=0.995)", {}, 200_000),
+    ("spark (diff, q=0.999; 0.1.0.dev0 default)", {"scorer": "spark", "quantile": 0.999}, 200_000),
+    ("isoforest (100 trees, q=0.99)", {"scorer": "isoforest", "quantile": 0.99}, 20_000),
+]
+
+
+def phase_perf(data) -> dict:
+    """Single-thread StreamGuard.process() throughput and per-stream memory on NAB (all series)."""
+    series = data["nab"][0] + data["nab"][1]
+    longest = max(series, key=lambda s: s.n_blocks)
+    out = {"memory_series": longest.name, "rows": {}}
+    for lab, guard, max_blocks in PERF:
+        tp = streaming_throughput(sorted(series, key=lambda s: s.name), max_blocks, guard)
+        mem = memory_profile(longest, [], guard)["StreamGuard.process (per stream)"]
+        out["rows"][lab] = {**tp, **mem}
+        print(lab, tp, mem, flush=True)
+    return out
+
+
+# --------------------------------------------------------------------------- tables
+
+
+def _f(v, nd=3):
+    return "-" if v is None else f"{v:.{nd}f}"
+
+
+def render(report: dict) -> str:
+    """Markdown tables for the README (``pivot.py tables``)."""
+    out = ["# Post-M4 pivot results (REPORTED)", ""]
+    ch = report.get("choose")
+    if ch:
+        out += [
+            "## Default-scorer rule (tuning splits only)",
+            "",
+            "| Candidate | q | NAB tune F1 | SMD tune F1 | Mean |",
+            "|---|---|---|---|---|",
+        ]
+        w = ch["winner"]
+        for r in ch["table"]:
+            star = (
+                " **(chosen)**"
+                if (r["scorer"], r["params"], r["q"]) == (w["scorer"], w["params"], w["q"])
+                else ""
+            )
+            out.append(
+                f"| {label(r['scorer'], r['params'])}{star} | {r['q']} | "
+                f"{_f(r['f1']['nab'])} | {_f(r['f1']['smd'])} | {_f(r['mean'], 4)} |"
+            )
+        out.append("")
+    te = report.get("test")
+    if te:
+        out += [
+            "## M4 test split: gate vs raw baseline",
+            "",
+            "| Dataset | Detector (M4-tuned setting) | Raw F1 | Gate F1 | Raw AP | Gate AP | "
+            "Flag disagreements |",
+            "|---|---|---|---|---|---|---|",
+        ]
+        for ds in ("nab", "smd"):
+            for fam in ("ewma", "iforest"):
+                r = te[ds][fam]
+                out.append(
+                    f"| {ds.upper()} | {r['setting']} q={r['q']} | {_f(r['raw']['f1'])} | "
+                    f"{_f(r['gate']['f1'])} | {_f(r['raw']['mean_ap'])} | "
+                    f"{_f(r['gate']['mean_ap'])} | {r['flag_disagreements']} / "
+                    f"{r['eval_blocks']} |"
+                )
+            d = te[ds]["default"]
+            out.append(
+                f"| {ds.upper()} | new default: {d['setting']} | | {_f(d['gate']['f1'])} | "
+                f"| {_f(d['gate']['mean_ap'])} | |"
+            )
+        out.append("")
+    rb = report.get("robust")
+    if rb:
+        out += [
+            "## Fault injection on NAB test series",
+            "",
+            f"{rb['series']} series x {rb['k_faults_per_series']} faults per type.",
+            "",
+            "| Fault | Method | Crashed series | Faults flagged | Non-finite scores admitted | "
+            "Clean-block decision changes | Reason codes at faults |",
+            "|---|---|---|---|---|---|---|",
+        ]
+        for r in rb["rows"]:
+            rc = ", ".join(f"{k} {v}" for k, v in sorted(r.get("fault_reasons", {}).items()))
+            ch_ = "n/a" if r["clean_decision_changes"] is None else r["clean_decision_changes"]
+            out.append(
+                f"| {r['fault']} | {r['method']} | {r['crashed_series']} | "
+                f"{r['fault_flagged']} / {r['faults']} | {r['nonfinite_admitted']} | "
+                f"{ch_} | {rc or '-'} |"
+            )
+        out.append("")
+    pf = report.get("perf")
+    if pf:
+        out += [
+            "## Throughput and memory (single thread, NAB)",
+            "",
+            "| Gate + scorer | Blocks | Blocks/s | Retained bytes | Peak bytes |",
+            "|---|---|---|---|---|",
+        ]
+        for lab, r in pf["rows"].items():
+            out.append(
+                f"| {lab} | {r['blocks']} | {r['blocks_per_s']:,.0f} | "
+                f"{r['retained_bytes']:,} | {r['peak_bytes']:,} |"
+            )
+        out.append("")
+    return "\n".join(out)
+
+
 # --------------------------------------------------------------------------- main
 
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("phase", choices=["choose", "test", "robust"])
+    p.add_argument("phase", choices=["choose", "test", "robust", "perf", "tables"])
     p.add_argument("--data-dir", type=Path, default=None)
     p.add_argument("--out", type=Path, default=OUT)
     p.add_argument("--workers", type=int, default=WORKERS)
     args = p.parse_args(argv)
-    data = load(args.data_dir or cache_dir())
     report = json.loads(args.out.read_text()) if args.out.exists() else {}
+    if args.phase == "tables":
+        md = args.out.with_suffix(".md")
+        md.write_text(render(report), encoding="utf-8")
+        print(f"wrote {md}")
+        return 0
+    data = load(args.data_dir or cache_dir())
     report.update(
         {"evidence": "REPORTED (public data, this code)", "streamguard_version": __version__}
     )
@@ -423,8 +541,10 @@ def main(argv: list[str] | None = None) -> int:
         elif args.phase == "test":
             m4 = json.loads((HERE / "results.json").read_text())
             res = phase_test(data, pool, m4, report["choose"]["winner"])
-        else:
+        elif args.phase == "robust":
             res = phase_robust(data, pool)
+        else:
+            res = phase_perf(data)
     report[args.phase] = {"date": dt.date.today().isoformat(), "code_commit": git_commit(), **res}
     args.out.write_text(json.dumps(report, indent=1, default=str) + "\n", encoding="utf-8")
     print(f"wrote {args.out}")

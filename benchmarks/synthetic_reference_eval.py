@@ -93,7 +93,7 @@ def demo_series() -> dict:
 
 
 def evaluate(series: dict, cfg: dict, warmup: int = WARMUP, first_eval: int = FIRST_EVAL) -> dict:
-    g = StreamGuard(warmup_blocks=warmup, quantile=0.99, **cfg)
+    g = StreamGuard(scorer="spark", warmup_blocks=warmup, quantile=0.99, **cfg)
     x = series["x"].reshape(N_BLOCKS, 32)
     latched = set()
     for b in range(N_BLOCKS):

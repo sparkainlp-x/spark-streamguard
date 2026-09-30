@@ -1,6 +1,11 @@
 """SYNTHETIC demo: seeded random walk with injected spikes, run through StreamGuard.
 
 Seed 42. The data are generated here; nothing is measured on real data. Output is SYNTHETIC.
+
+The demo pins the ``spark`` scorer (diff reference), the scorer this demo was written for. The
+library default scorer is ``ewma`` (chosen on real-data tuning splits); on this random walk it
+latches most post-warm-up blocks because it reads random-walk drift as a level shift (see
+README, "Choosing a scorer").
 """
 
 from __future__ import annotations
@@ -27,7 +32,7 @@ def make_series() -> np.ndarray:
 
 def main() -> None:
     x = make_series()
-    guard = StreamGuard(warmup_blocks=WARMUP)
+    guard = StreamGuard(warmup_blocks=WARMUP, scorer="spark", quantile=0.999)
     counts: dict[str, int] = {}
     print(f"SYNTHETIC demo | seed={SEED} blocks={N_BLOCKS} warmup={WARMUP} spikes={SPIKE_BLOCKS}")
     for block in x.reshape(N_BLOCKS, 32):

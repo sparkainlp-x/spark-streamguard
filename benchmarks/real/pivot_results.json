@@ -1,0 +1,1866 @@
+{
+ "evidence": "REPORTED (public data, this code)",
+ "streamguard_version": "0.1.0.dev0",
+ "choose": {
+  "date": "2026-09-29",
+  "code_commit": "d9910c6d16987e70bdf7391bc562e165ea019b7f",
+  "rule": "Default-scorer rule, **stated before it was run** (2026-09-29) and applied to the\n            M4 *tuning* splits only:\n\n            * Candidates (numpy-only built-in scorers, shipped parameters, ``warmup_blocks=64``):\n              ``spark`` with reference ``diff``, ``median``, ``detrend``; ``ewma`` with\n              ``lam`` in {0.1, 0.2, 0.3} and ``ref_window=288``; each with quantile ``q`` in\n              {0.99, 0.995, 0.999}, in that order (scorer list outer, q inner).\n            * Criterion: mean over {NAB, SMD} of the tuning-split pooled F1 (each dataset\n              weighted 1/2). Highest wins; ties (difference < 1e-9) go to the earlier candidate.\n            * ``isoforest`` is not a candidate (optional scikit-learn dependency).\n            * The winner's scorer, parameters and ``q`` become the library defaults.",
+  "table": [
+   {
+    "scorer": "spark",
+    "params": {
+     "reference": "diff"
+    },
+    "q": 0.99,
+    "f1": {
+     "nab": 0.15831987075928922,
+     "smd": 0.18527838943063857
+    },
+    "mean": 0.1717991300949639
+   },
+   {
+    "scorer": "spark",
+    "params": {
+     "reference": "diff"
+    },
+    "q": 0.995,
+    "f1": {
+     "nab": 0.14093959731543623,
+     "smd": 0.19338760591460377
+    },
+    "mean": 0.16716360161502
+   },
+   {
+    "scorer": "spark",
+    "params": {
+     "reference": "diff"
+    },
+    "q": 0.999,
+    "f1": {
+     "nab": 0.14065180102915953,
+     "smd": 0.19835277968428278
+    },
+    "mean": 0.16950229035672115
+   },
+   {
+    "scorer": "spark",
+    "params": {
+     "reference": "median"
+    },
+    "q": 0.99,
+    "f1": {
+     "nab": 0.20208023774145617,
+     "smd": 0.18032050322000898
+    },
+    "mean": 0.19120037048073257
+   },
+   {
+    "scorer": "spark",
+    "params": {
+     "reference": "median"
+    },
+    "q": 0.995,
+    "f1": {
+     "nab": 0.19969742813918306,
+     "smd": 0.1838087895142637
+    },
+    "mean": 0.19175310882672336
+   },
+   {
+    "scorer": "spark",
+    "params": {
+     "reference": "median"
+    },
+    "q": 0.999,
+    "f1": {
+     "nab": 0.20121951219512196,
+     "smd": 0.1862729700015706
+    },
+    "mean": 0.19374624109834626
+   },
+   {
+    "scorer": "spark",
+    "params": {
+     "reference": "detrend"
+    },
+    "q": 0.99,
+    "f1": {
+     "nab": 0.13186813186813184,
+     "smd": 0.18642708166212094
+    },
+    "mean": 0.1591476067651264
+   },
+   {
+    "scorer": "spark",
+    "params": {
+     "reference": "detrend"
+    },
+    "q": 0.995,
+    "f1": {
+     "nab": 0.1312,
+     "smd": 0.19411160561451557
+    },
+    "mean": 0.16265580280725778
+   },
+   {
+    "scorer": "spark",
+    "params": {
+     "reference": "detrend"
+    },
+    "q": 0.999,
+    "f1": {
+     "nab": 0.12682926829268293,
+     "smd": 0.19833539932707633
+    },
+    "mean": 0.16258233380987963
+   },
+   {
+    "scorer": "ewma",
+    "params": {
+     "lam": 0.1,
+     "ref_window": 288
+    },
+    "q": 0.99,
+    "f1": {
+     "nab": 0.22707423580786026,
+     "smd": 0.17141254032823677
+    },
+    "mean": 0.19924338806804853
+   },
+   {
+    "scorer": "ewma",
+    "params": {
+     "lam": 0.1,
+     "ref_window": 288
+    },
+    "q": 0.995,
+    "f1": {
+     "nab": 0.22713864306784656,
+     "smd": 0.17408848537253208
+    },
+    "mean": 0.20061356422018933
+   },
+   {
+    "scorer": "ewma",
+    "params": {
+     "lam": 0.1,
+     "ref_window": 288
+    },
+    "q": 0.999,
+    "f1": {
+     "nab": 0.22619047619047616,
+     "smd": 0.17690273288275052
+    },
+    "mean": 0.20154660453661333
+   },
+   {
+    "scorer": "ewma",
+    "params": {
+     "lam": 0.2,
+     "ref_window": 288
+    },
+    "q": 0.99,
+    "f1": {
+     "nab": 0.22766570605187317,
+     "smd": 0.17634220864251418
+    },
+    "mean": 0.20200395734719367
+   },
+   {
+    "scorer": "ewma",
+    "params": {
+     "lam": 0.2,
+     "ref_window": 288
+    },
+    "q": 0.995,
+    "f1": {
+     "nab": 0.2267441860465116,
+     "smd": 0.18086382723455308
+    },
+    "mean": 0.20380400664053233
+   },
+   {
+    "scorer": "ewma",
+    "params": {
+     "lam": 0.2,
+     "ref_window": 288
+    },
+    "q": 0.999,
+    "f1": {
+     "nab": 0.21700879765395897,
+     "smd": 0.1831758610179823
+    },
+    "mean": 0.20009232933597065
+   },
+   {
+    "scorer": "ewma",
+    "params": {
+     "lam": 0.3,
+     "ref_window": 288
+    },
+    "q": 0.99,
+    "f1": {
+     "nab": 0.21459227467811157,
+     "smd": 0.17685685101415438
+    },
+    "mean": 0.195724562846133
+   },
+   {
+    "scorer": "ewma",
+    "params": {
+     "lam": 0.3,
+     "ref_window": 288
+    },
+    "q": 0.995,
+    "f1": {
+     "nab": 0.21418234442836467,
+     "smd": 0.17921146953405015
+    },
+    "mean": 0.1966969069812074
+   },
+   {
+    "scorer": "ewma",
+    "params": {
+     "lam": 0.3,
+     "ref_window": 288
+    },
+    "q": 0.999,
+    "f1": {
+     "nab": 0.2099125364431487,
+     "smd": 0.18298653610771115
+    },
+    "mean": 0.19644953627542994
+   }
+  ],
+  "winner": {
+   "scorer": "ewma",
+   "params": {
+    "lam": 0.2,
+    "ref_window": 288
+   },
+   "q": 0.995,
+   "f1": {
+    "nab": 0.2267441860465116,
+    "smd": 0.18086382723455308
+   },
+   "mean": 0.20380400664053233
+  },
+  "code_commit_note": "pre-registration commit: rule text committed before this phase ran"
+ },
+ "test": {
+  "date": "2026-09-29",
+  "code_commit": "d9910c6d16987e70bdf7391bc562e165ea019b7f",
+  "nab": {
+   "ewma": {
+    "setting": "EWMA chart (lam=0.2)",
+    "q": 0.99,
+    "raw": {
+     "tp": 66,
+     "fp": 143,
+     "fn": 211,
+     "tn": 2201,
+     "precision": 0.3157894736842105,
+     "recall": 0.23826714801444043,
+     "f1": 0.2716049382716049,
+     "mean_ap": 0.36936848182367993,
+     "event_recall": 0.8571428571428571,
+     "median_delay_blocks": 4.0
+    },
+    "gate": {
+     "tp": 66,
+     "fp": 143,
+     "fn": 211,
+     "tn": 2201,
+     "precision": 0.3157894736842105,
+     "recall": 0.23826714801444043,
+     "f1": 0.2716049382716049,
+     "mean_ap": 0.36936848182367993,
+     "event_recall": 0.8571428571428571,
+     "median_delay_blocks": 4.0
+    },
+    "m4_reported_raw": {
+     "f1": 0.2716049382716049,
+     "mean_ap": 0.36936848182367993
+    },
+    "flag_disagreements": 0,
+    "eval_blocks": 2621,
+    "gate_reasons": {
+     "OK": 2412,
+     "SCORE_OVER_TAU": 209
+    }
+   },
+   "iforest": {
+    "setting": "Isolation Forest",
+    "q": 0.99,
+    "raw": {
+     "tp": 46,
+     "fp": 43,
+     "fn": 231,
+     "tn": 2301,
+     "precision": 0.5168539325842697,
+     "recall": 0.16606498194945848,
+     "f1": 0.25136612021857924,
+     "mean_ap": 0.39156026969603525,
+     "event_recall": 0.8095238095238095,
+     "median_delay_blocks": 4.0
+    },
+    "gate": {
+     "tp": 46,
+     "fp": 43,
+     "fn": 231,
+     "tn": 2301,
+     "precision": 0.5168539325842697,
+     "recall": 0.16606498194945848,
+     "f1": 0.25136612021857924,
+     "mean_ap": 0.39156026969603525,
+     "event_recall": 0.8095238095238095,
+     "median_delay_blocks": 4.0
+    },
+    "m4_reported_raw": {
+     "f1": 0.25136612021857924,
+     "mean_ap": 0.39156026969603525
+    },
+    "flag_disagreements": 0,
+    "eval_blocks": 2621,
+    "gate_reasons": {
+     "OK": 2532,
+     "SCORE_OVER_TAU": 89
+    }
+   },
+   "default": {
+    "setting": "ewma (lam=0.2, ref_window=288) q=0.995",
+    "gate": {
+     "tp": 49,
+     "fp": 72,
+     "fn": 228,
+     "tn": 2272,
+     "precision": 0.4049586776859504,
+     "recall": 0.17689530685920576,
+     "f1": 0.24623115577889446,
+     "mean_ap": 0.3546212284634299,
+     "event_recall": 0.8095238095238095,
+     "median_delay_blocks": 4.0
+    }
+   }
+  },
+  "smd": {
+   "ewma": {
+    "setting": "EWMA chart (lam=0.2)",
+    "q": 0.999,
+    "raw": {
+     "tp": 485,
+     "fp": 4043,
+     "fn": 44,
+     "tn": 5499,
+     "precision": 0.1071113074204947,
+     "recall": 0.9168241965973535,
+     "f1": 0.1918133280601147,
+     "mean_ap": 0.4956508292266502,
+     "event_recall": 0.95,
+     "median_delay_blocks": 0.0
+    },
+    "gate": {
+     "tp": 485,
+     "fp": 4043,
+     "fn": 44,
+     "tn": 5499,
+     "precision": 0.1071113074204947,
+     "recall": 0.9168241965973535,
+     "f1": 0.1918133280601147,
+     "mean_ap": 0.4956508292266502,
+     "event_recall": 0.95,
+     "median_delay_blocks": 0.0
+    },
+    "m4_reported_raw": {
+     "f1": 0.1918133280601147,
+     "mean_ap": 0.4956508292266502
+    },
+    "flag_disagreements": 0,
+    "eval_blocks": 10071,
+    "gate_reasons": {
+     "OK": 282529,
+     "SCORE_OVER_TAU": 21987
+    }
+   },
+   "iforest": {
+    "setting": "Isolation Forest",
+    "q": 0.999,
+    "raw": {
+     "tp": 388,
+     "fp": 3414,
+     "fn": 141,
+     "tn": 6128,
+     "precision": 0.1020515518148343,
+     "recall": 0.7334593572778828,
+     "f1": 0.17917340106211038,
+     "mean_ap": 0.34494756983707126,
+     "event_recall": 0.69375,
+     "median_delay_blocks": 0.0
+    },
+    "gate": {
+     "tp": 388,
+     "fp": 3414,
+     "fn": 141,
+     "tn": 6128,
+     "precision": 0.1020515518148343,
+     "recall": 0.7334593572778828,
+     "f1": 0.17917340106211038,
+     "mean_ap": 0.34494756983707126,
+     "event_recall": 0.69375,
+     "median_delay_blocks": 0.0
+    },
+    "m4_reported_raw": {
+     "f1": 0.17917340106211038,
+     "mean_ap": 0.34494756983707126
+    },
+    "flag_disagreements": 0,
+    "eval_blocks": 10071,
+    "gate_reasons": {
+     "OK": 290061,
+     "SCORE_OVER_TAU": 14455
+    }
+   },
+   "default": {
+    "setting": "ewma (lam=0.2, ref_window=288) q=0.995",
+    "gate": {
+     "tp": 495,
+     "fp": 4183,
+     "fn": 34,
+     "tn": 5359,
+     "precision": 0.10581445061992305,
+     "recall": 0.9357277882797732,
+     "f1": 0.19012867294027272,
+     "mean_ap": 0.5026582128922181,
+     "event_recall": 0.975,
+     "median_delay_blocks": 0.0
+    }
+   }
+  },
+  "code_commit_note": "run from the working tree on top of this commit (feat/pluggable-scorer, PR #5); later edits before merge only added numpy errstate guards, default values and docs, not code paths used here (the phase passes scorer, parameters and q explicitly)"
+ },
+ "robust": {
+  "date": "2026-09-29",
+  "code_commit": "d9910c6d16987e70bdf7391bc562e165ea019b7f",
+  "k_faults_per_series": 3,
+  "series": 16,
+  "plans": {
+   "nan": {
+    "realAWSCloudwatch/ec2_cpu_utilization_24ae8d.csv": [
+     [
+      70,
+      27
+     ],
+     [
+      103,
+      2
+     ],
+     [
+      110,
+      22
+     ]
+    ],
+    "realAWSCloudwatch/ec2_cpu_utilization_53ea38.csv": [
+     [
+      71,
+      24
+     ],
+     [
+      77,
+      22
+     ],
+     [
+      96,
+      25
+     ]
+    ],
+    "realAWSCloudwatch/ec2_cpu_utilization_5f5533.csv": [
+     [
+      73,
+      11
+     ],
+     [
+      94,
+      5
+     ],
+     [
+      114,
+      29
+     ]
+    ],
+    "realAWSCloudwatch/ec2_cpu_utilization_77c1ca.csv": [
+     [
+      89,
+      14
+     ],
+     [
+      102,
+      14
+     ],
+     [
+      109,
+      7
+     ]
+    ],
+    "realAWSCloudwatch/ec2_cpu_utilization_825cc2.csv": [
+     [
+      71,
+      26
+     ],
+     [
+      97,
+      8
+     ],
+     [
+      117,
+      20
+     ]
+    ],
+    "realAWSCloudwatch/ec2_disk_write_bytes_1ef3de.csv": [
+     [
+      78,
+      31
+     ],
+     [
+      121,
+      14
+     ],
+     [
+      125,
+      28
+     ]
+    ],
+    "realAWSCloudwatch/ec2_network_in_5abac7.csv": [
+     [
+      118,
+      14
+     ],
+     [
+      126,
+      15
+     ],
+     [
+      144,
+      1
+     ]
+    ],
+    "realAWSCloudwatch/elb_request_count_8c0756.csv": [
+     [
+      74,
+      23
+     ],
+     [
+      96,
+      11
+     ],
+     [
+      109,
+      30
+     ]
+    ],
+    "realAWSCloudwatch/grok_asg_anomaly.csv": [
+     [
+      90,
+      15
+     ],
+     [
+      96,
+      25
+     ],
+     [
+      134,
+      6
+     ]
+    ],
+    "realAWSCloudwatch/rds_cpu_utilization_cc0c53.csv": [
+     [
+      73,
+      7
+     ],
+     [
+      91,
+      18
+     ],
+     [
+      105,
+      21
+     ]
+    ],
+    "realAWSCloudwatch/rds_cpu_utilization_e47b3b.csv": [
+     [
+      75,
+      22
+     ],
+     [
+      90,
+      3
+     ],
+     [
+      118,
+      9
+     ]
+    ],
+    "realKnownCause/cpu_utilization_asg_misconfiguration.csv": [
+     [
+      281,
+      12
+     ],
+     [
+      445,
+      28
+     ],
+     [
+      477,
+      9
+     ]
+    ],
+    "realKnownCause/rogue_agent_key_updown.csv": [
+     [
+      88,
+      6
+     ],
+     [
+      128,
+      25
+     ],
+     [
+      132,
+      0
+     ]
+    ],
+    "realTweets/Twitter_volume_CVS.csv": [
+     [
+      399,
+      22
+     ],
+     [
+      401,
+      8
+     ],
+     [
+      404,
+      24
+     ]
+    ],
+    "realTweets/Twitter_volume_KO.csv": [
+     [
+      261,
+      4
+     ],
+     [
+      281,
+      7
+     ],
+     [
+      302,
+      3
+     ]
+    ],
+    "realTweets/Twitter_volume_PFE.csv": [
+     [
+      252,
+      18
+     ],
+     [
+      345,
+      2
+     ],
+     [
+      350,
+      24
+     ]
+    ]
+   },
+   "inf": {
+    "realAWSCloudwatch/ec2_cpu_utilization_24ae8d.csv": [
+     [
+      98,
+      17
+     ],
+     [
+      102,
+      25
+     ],
+     [
+      123,
+      9
+     ]
+    ],
+    "realAWSCloudwatch/ec2_cpu_utilization_53ea38.csv": [
+     [
+      67,
+      6
+     ],
+     [
+      86,
+      8
+     ],
+     [
+      99,
+      13
+     ]
+    ],
+    "realAWSCloudwatch/ec2_cpu_utilization_5f5533.csv": [
+     [
+      68,
+      1
+     ],
+     [
+      114,
+      27
+     ],
+     [
+      121,
+      9
+     ]
+    ],
+    "realAWSCloudwatch/ec2_cpu_utilization_77c1ca.csv": [
+     [
+      82,
+      17
+     ],
+     [
+      91,
+      16
+     ],
+     [
+      117,
+      25
+     ]
+    ],
+    "realAWSCloudwatch/ec2_cpu_utilization_825cc2.csv": [
+     [
+      89,
+      26
+     ],
+     [
+      103,
+      10
+     ],
+     [
+      121,
+      5
+     ]
+    ],
+    "realAWSCloudwatch/ec2_disk_write_bytes_1ef3de.csv": [
+     [
+      67,
+      23
+     ],
+     [
+      74,
+      22
+     ],
+     [
+      91,
+      14
+     ]
+    ],
+    "realAWSCloudwatch/ec2_network_in_5abac7.csv": [
+     [
+      78,
+      4
+     ],
+     [
+      121,
+      15
+     ],
+     [
+      137,
+      22
+     ]
+    ],
+    "realAWSCloudwatch/elb_request_count_8c0756.csv": [
+     [
+      75,
+      9
+     ],
+     [
+      91,
+      21
+     ],
+     [
+      93,
+      20
+     ]
+    ],
+    "realAWSCloudwatch/grok_asg_anomaly.csv": [
+     [
+      93,
+      3
+     ],
+     [
+      110,
+      10
+     ],
+     [
+      138,
+      30
+     ]
+    ],
+    "realAWSCloudwatch/rds_cpu_utilization_cc0c53.csv": [
+     [
+      86,
+      8
+     ],
+     [
+      94,
+      24
+     ],
+     [
+      117,
+      31
+     ]
+    ],
+    "realAWSCloudwatch/rds_cpu_utilization_e47b3b.csv": [
+     [
+      81,
+      14
+     ],
+     [
+      91,
+      28
+     ],
+     [
+      108,
+      4
+     ]
+    ],
+    "realKnownCause/cpu_utilization_asg_misconfiguration.csv": [
+     [
+      166,
+      25
+     ],
+     [
+      291,
+      18
+     ],
+     [
+      414,
+      17
+     ]
+    ],
+    "realKnownCause/rogue_agent_key_updown.csv": [
+     [
+      82,
+      15
+     ],
+     [
+      110,
+      23
+     ],
+     [
+      149,
+      21
+     ]
+    ],
+    "realTweets/Twitter_volume_CVS.csv": [
+     [
+      197,
+      3
+     ],
+     [
+      249,
+      20
+     ],
+     [
+      333,
+      20
+     ]
+    ],
+    "realTweets/Twitter_volume_KO.csv": [
+     [
+      101,
+      5
+     ],
+     [
+      243,
+      15
+     ],
+     [
+      388,
+      6
+     ]
+    ],
+    "realTweets/Twitter_volume_PFE.csv": [
+     [
+      127,
+      5
+     ],
+     [
+      206,
+      18
+     ],
+     [
+      347,
+      25
+     ]
+    ]
+   },
+   "short": {
+    "realAWSCloudwatch/ec2_cpu_utilization_24ae8d.csv": [
+     [
+      75,
+      14
+     ],
+     [
+      83,
+      11
+     ],
+     [
+      119,
+      19
+     ]
+    ],
+    "realAWSCloudwatch/ec2_cpu_utilization_53ea38.csv": [
+     [
+      67,
+      13
+     ],
+     [
+      82,
+      15
+     ],
+     [
+      99,
+      14
+     ]
+    ],
+    "realAWSCloudwatch/ec2_cpu_utilization_5f5533.csv": [
+     [
+      91,
+      18
+     ],
+     [
+      93,
+      17
+     ],
+     [
+      103,
+      15
+     ]
+    ],
+    "realAWSCloudwatch/ec2_cpu_utilization_77c1ca.csv": [
+     [
+      81,
+      16
+     ],
+     [
+      111,
+      27
+     ],
+     [
+      121,
+      14
+     ]
+    ],
+    "realAWSCloudwatch/ec2_cpu_utilization_825cc2.csv": [
+     [
+      67,
+      28
+     ],
+     [
+      81,
+      17
+     ],
+     [
+      87,
+      4
+     ]
+    ],
+    "realAWSCloudwatch/ec2_disk_write_bytes_1ef3de.csv": [
+     [
+      75,
+      23
+     ],
+     [
+      88,
+      23
+     ],
+     [
+      117,
+      30
+     ]
+    ],
+    "realAWSCloudwatch/ec2_network_in_5abac7.csv": [
+     [
+      74,
+      31
+     ],
+     [
+      91,
+      7
+     ],
+     [
+      125,
+      7
+     ]
+    ],
+    "realAWSCloudwatch/elb_request_count_8c0756.csv": [
+     [
+      68,
+      9
+     ],
+     [
+      74,
+      26
+     ],
+     [
+      98,
+      14
+     ]
+    ],
+    "realAWSCloudwatch/grok_asg_anomaly.csv": [
+     [
+      90,
+      20
+     ],
+     [
+      125,
+      9
+     ],
+     [
+      138,
+      19
+     ]
+    ],
+    "realAWSCloudwatch/rds_cpu_utilization_cc0c53.csv": [
+     [
+      80,
+      5
+     ],
+     [
+      94,
+      5
+     ],
+     [
+      117,
+      17
+     ]
+    ],
+    "realAWSCloudwatch/rds_cpu_utilization_e47b3b.csv": [
+     [
+      68,
+      4
+     ],
+     [
+      83,
+      28
+     ],
+     [
+      91,
+      2
+     ]
+    ],
+    "realKnownCause/cpu_utilization_asg_misconfiguration.csv": [
+     [
+      435,
+      3
+     ],
+     [
+      484,
+      16
+     ],
+     [
+      507,
+      15
+     ]
+    ],
+    "realKnownCause/rogue_agent_key_updown.csv": [
+     [
+      68,
+      13
+     ],
+     [
+      96,
+      11
+     ],
+     [
+      141,
+      28
+     ]
+    ],
+    "realTweets/Twitter_volume_CVS.csv": [
+     [
+      106,
+      0
+     ],
+     [
+      379,
+      29
+     ],
+     [
+      384,
+      30
+     ]
+    ],
+    "realTweets/Twitter_volume_KO.csv": [
+     [
+      79,
+      28
+     ],
+     [
+      118,
+      4
+     ],
+     [
+      168,
+      23
+     ]
+    ],
+    "realTweets/Twitter_volume_PFE.csv": [
+     [
+      142,
+      1
+     ],
+     [
+      222,
+      6
+     ],
+     [
+      321,
+      8
+     ]
+    ]
+   },
+   "drop": {
+    "realAWSCloudwatch/ec2_cpu_utilization_24ae8d.csv": [
+     [
+      83,
+      15
+     ],
+     [
+      111,
+      16
+     ],
+     [
+      122,
+      13
+     ]
+    ],
+    "realAWSCloudwatch/ec2_cpu_utilization_53ea38.csv": [
+     [
+      66,
+      8
+     ],
+     [
+      74,
+      4
+     ],
+     [
+      119,
+      0
+     ]
+    ],
+    "realAWSCloudwatch/ec2_cpu_utilization_5f5533.csv": [
+     [
+      73,
+      29
+     ],
+     [
+      103,
+      22
+     ],
+     [
+      121,
+      24
+     ]
+    ],
+    "realAWSCloudwatch/ec2_cpu_utilization_77c1ca.csv": [
+     [
+      77,
+      0
+     ],
+     [
+      89,
+      22
+     ],
+     [
+      98,
+      2
+     ]
+    ],
+    "realAWSCloudwatch/ec2_cpu_utilization_825cc2.csv": [
+     [
+      73,
+      18
+     ],
+     [
+      107,
+      29
+     ],
+     [
+      113,
+      2
+     ]
+    ],
+    "realAWSCloudwatch/ec2_disk_write_bytes_1ef3de.csv": [
+     [
+      89,
+      16
+     ],
+     [
+      96,
+      21
+     ],
+     [
+      141,
+      10
+     ]
+    ],
+    "realAWSCloudwatch/ec2_network_in_5abac7.csv": [
+     [
+      88,
+      15
+     ],
+     [
+      106,
+      0
+     ],
+     [
+      139,
+      19
+     ]
+    ],
+    "realAWSCloudwatch/elb_request_count_8c0756.csv": [
+     [
+      74,
+      23
+     ],
+     [
+      97,
+      4
+     ],
+     [
+      102,
+      23
+     ]
+    ],
+    "realAWSCloudwatch/grok_asg_anomaly.csv": [
+     [
+      66,
+      5
+     ],
+     [
+      97,
+      29
+     ],
+     [
+      139,
+      23
+     ]
+    ],
+    "realAWSCloudwatch/rds_cpu_utilization_cc0c53.csv": [
+     [
+      90,
+      27
+     ],
+     [
+      93,
+      0
+     ],
+     [
+      111,
+      21
+     ]
+    ],
+    "realAWSCloudwatch/rds_cpu_utilization_e47b3b.csv": [
+     [
+      72,
+      14
+     ],
+     [
+      82,
+      7
+     ],
+     [
+      114,
+      10
+     ]
+    ],
+    "realKnownCause/cpu_utilization_asg_misconfiguration.csv": [
+     [
+      328,
+      24
+     ],
+     [
+      366,
+      19
+     ],
+     [
+      444,
+      9
+     ]
+    ],
+    "realKnownCause/rogue_agent_key_updown.csv": [
+     [
+      77,
+      3
+     ],
+     [
+      102,
+      20
+     ],
+     [
+      105,
+      30
+     ]
+    ],
+    "realTweets/Twitter_volume_CVS.csv": [
+     [
+      182,
+      8
+     ],
+     [
+      259,
+      7
+     ],
+     [
+      434,
+      31
+     ]
+    ],
+    "realTweets/Twitter_volume_KO.csv": [
+     [
+      383,
+      28
+     ],
+     [
+      414,
+      2
+     ],
+     [
+      424,
+      15
+     ]
+    ],
+    "realTweets/Twitter_volume_PFE.csv": [
+     [
+      128,
+      10
+     ],
+     [
+      218,
+      9
+     ],
+     [
+      318,
+      29
+     ]
+    ]
+   }
+  },
+  "rows": [
+   {
+    "method": "EWMA chart (lam=0.2, q=0.99)",
+    "type": "raw",
+    "fault": "nan",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 0,
+    "nonfinite_admitted": 1498,
+    "clean_decision_changes": 177,
+    "fault_nonfinite_score": 48
+   },
+   {
+    "method": "CUSUM (k=2.0, q=0.99)",
+    "type": "raw",
+    "fault": "nan",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 0,
+    "nonfinite_admitted": 1498,
+    "clean_decision_changes": 587,
+    "fault_nonfinite_score": 48
+   },
+   {
+    "method": "Rolling z-score (window=64, q=0.99)",
+    "type": "raw",
+    "fault": "nan",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 0,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": 2,
+    "fault_nonfinite_score": 0
+   },
+   {
+    "method": "Isolation Forest (q=0.99)",
+    "type": "raw",
+    "fault": "nan",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 1,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": 16,
+    "fault_nonfinite_score": 0
+   },
+   {
+    "method": "StreamGuard+ewma (lam=0.2, q=0.99)",
+    "type": "gate",
+    "fault": "nan",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 48,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": 1,
+    "reasons": {
+     "OK": 2368,
+     "NAN_INPUT": 48,
+     "SCORE_OVER_TAU": 205
+    },
+    "fault_reasons": {
+     "NAN_INPUT": 48
+    }
+   },
+   {
+    "method": "StreamGuard+spark (diff, q=0.99)",
+    "type": "gate",
+    "fault": "nan",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 48,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": 45,
+    "reasons": {
+     "OK": 2425,
+     "NAN_INPUT": 48,
+     "NO_REFERENCE": 48,
+     "SCORE_OVER_TAU": 100
+    },
+    "fault_reasons": {
+     "NAN_INPUT": 48
+    }
+   },
+   {
+    "method": "StreamGuard+isoforest (q=0.99)",
+    "type": "gate",
+    "fault": "nan",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 48,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": 0,
+    "reasons": {
+     "OK": 2486,
+     "NAN_INPUT": 48,
+     "SCORE_OVER_TAU": 87
+    },
+    "fault_reasons": {
+     "NAN_INPUT": 48
+    }
+   },
+   {
+    "method": "EWMA chart (lam=0.2, q=0.99)",
+    "type": "raw",
+    "fault": "inf",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 0,
+    "nonfinite_admitted": 2104,
+    "clean_decision_changes": 193,
+    "fault_nonfinite_score": 48
+   },
+   {
+    "method": "CUSUM (k=2.0, q=0.99)",
+    "type": "raw",
+    "fault": "inf",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 48,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": 1298,
+    "fault_nonfinite_score": 48
+   },
+   {
+    "method": "Rolling z-score (window=64, q=0.99)",
+    "type": "raw",
+    "fault": "inf",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 47,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": 2,
+    "fault_nonfinite_score": 0
+   },
+   {
+    "method": "Isolation Forest (q=0.99)",
+    "type": "raw",
+    "fault": "inf",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 5,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": 0,
+    "fault_nonfinite_score": 0
+   },
+   {
+    "method": "StreamGuard+ewma (lam=0.2, q=0.99)",
+    "type": "gate",
+    "fault": "inf",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 48,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": 1,
+    "reasons": {
+     "OK": 2369,
+     "INF_INPUT": 48,
+     "SCORE_OVER_TAU": 204
+    },
+    "fault_reasons": {
+     "INF_INPUT": 48
+    }
+   },
+   {
+    "method": "StreamGuard+spark (diff, q=0.99)",
+    "type": "gate",
+    "fault": "inf",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 48,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": 47,
+    "reasons": {
+     "OK": 2421,
+     "INF_INPUT": 48,
+     "NO_REFERENCE": 48,
+     "SCORE_OVER_TAU": 104
+    },
+    "fault_reasons": {
+     "INF_INPUT": 48
+    }
+   },
+   {
+    "method": "StreamGuard+isoforest (q=0.99)",
+    "type": "gate",
+    "fault": "inf",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 48,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": 1,
+    "reasons": {
+     "OK": 2487,
+     "SCORE_OVER_TAU": 86,
+     "INF_INPUT": 48
+    },
+    "fault_reasons": {
+     "INF_INPUT": 48
+    }
+   },
+   {
+    "method": "EWMA chart (lam=0.2, q=0.99)",
+    "type": "raw",
+    "fault": "short",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 8,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": null,
+    "fault_nonfinite_score": 0
+   },
+   {
+    "method": "CUSUM (k=2.0, q=0.99)",
+    "type": "raw",
+    "fault": "short",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 20,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": null,
+    "fault_nonfinite_score": 0
+   },
+   {
+    "method": "Rolling z-score (window=64, q=0.99)",
+    "type": "raw",
+    "fault": "short",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 1,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": null,
+    "fault_nonfinite_score": 0
+   },
+   {
+    "method": "Isolation Forest (q=0.99)",
+    "type": "raw",
+    "fault": "short",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 4,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": null,
+    "fault_nonfinite_score": 0
+   },
+   {
+    "method": "StreamGuard+ewma (lam=0.2, q=0.99)",
+    "type": "gate",
+    "fault": "short",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 48,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": 3,
+    "reasons": {
+     "OK": 2369,
+     "BAD_SHAPE": 48,
+     "SCORE_OVER_TAU": 204
+    },
+    "fault_reasons": {
+     "BAD_SHAPE": 48
+    }
+   },
+   {
+    "method": "StreamGuard+spark (diff, q=0.99)",
+    "type": "gate",
+    "fault": "short",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 48,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": 45,
+    "reasons": {
+     "OK": 2425,
+     "BAD_SHAPE": 48,
+     "NO_REFERENCE": 48,
+     "SCORE_OVER_TAU": 100
+    },
+    "fault_reasons": {
+     "BAD_SHAPE": 48
+    }
+   },
+   {
+    "method": "StreamGuard+isoforest (q=0.99)",
+    "type": "gate",
+    "fault": "short",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 48,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": 2,
+    "reasons": {
+     "OK": 2486,
+     "BAD_SHAPE": 48,
+     "SCORE_OVER_TAU": 87
+    },
+    "fault_reasons": {
+     "BAD_SHAPE": 48
+    }
+   },
+   {
+    "method": "EWMA chart (lam=0.2, q=0.99)",
+    "type": "raw",
+    "fault": "drop",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 4,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": null,
+    "fault_nonfinite_score": 0
+   },
+   {
+    "method": "CUSUM (k=2.0, q=0.99)",
+    "type": "raw",
+    "fault": "drop",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 21,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": null,
+    "fault_nonfinite_score": 0
+   },
+   {
+    "method": "Rolling z-score (window=64, q=0.99)",
+    "type": "raw",
+    "fault": "drop",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 3,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": null,
+    "fault_nonfinite_score": 0
+   },
+   {
+    "method": "Isolation Forest (q=0.99)",
+    "type": "raw",
+    "fault": "drop",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 3,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": null,
+    "fault_nonfinite_score": 0
+   },
+   {
+    "method": "StreamGuard+ewma (lam=0.2, q=0.99)",
+    "type": "gate",
+    "fault": "drop",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 4,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": 3,
+    "reasons": {
+     "OK": 2368,
+     "SCORE_OVER_TAU": 205
+    },
+    "fault_reasons": {
+     "OK": 44,
+     "SCORE_OVER_TAU": 4
+    }
+   },
+   {
+    "method": "StreamGuard+ewma (lam=0.2, q=0.99) +seq",
+    "type": "gate",
+    "fault": "drop",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 48,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": 4,
+    "reasons": {
+     "OK": 2323,
+     "SEQUENCE_GAP": 48,
+     "SCORE_OVER_TAU": 202
+    },
+    "fault_reasons": {
+     "SEQUENCE_GAP": 48
+    }
+   },
+   {
+    "method": "StreamGuard+spark (diff, q=0.99)",
+    "type": "gate",
+    "fault": "drop",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 2,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": 0,
+    "reasons": {
+     "OK": 2468,
+     "SCORE_OVER_TAU": 105
+    },
+    "fault_reasons": {
+     "OK": 46,
+     "SCORE_OVER_TAU": 2
+    }
+   },
+   {
+    "method": "StreamGuard+spark (diff, q=0.99) +seq",
+    "type": "gate",
+    "fault": "drop",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 48,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": 43,
+    "reasons": {
+     "OK": 2379,
+     "SEQUENCE_GAP": 48,
+     "NO_REFERENCE": 48,
+     "SCORE_OVER_TAU": 98
+    },
+    "fault_reasons": {
+     "SEQUENCE_GAP": 48
+    }
+   },
+   {
+    "method": "StreamGuard+isoforest (q=0.99)",
+    "type": "gate",
+    "fault": "drop",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 3,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": 1,
+    "reasons": {
+     "OK": 2485,
+     "SCORE_OVER_TAU": 88
+    },
+    "fault_reasons": {
+     "OK": 45,
+     "SCORE_OVER_TAU": 3
+    }
+   },
+   {
+    "method": "StreamGuard+isoforest (q=0.99) +seq",
+    "type": "gate",
+    "fault": "drop",
+    "crashed_series": 0,
+    "errors": [],
+    "faults": 48,
+    "fault_flagged": 48,
+    "nonfinite_admitted": 0,
+    "clean_decision_changes": 3,
+    "reasons": {
+     "OK": 2438,
+     "SCORE_OVER_TAU": 87,
+     "SEQUENCE_GAP": 48
+    },
+    "fault_reasons": {
+     "SEQUENCE_GAP": 48
+    }
+   }
+  ],
+  "code_commit_note": "run from the working tree on top of this commit (feat/pluggable-scorer, PR #5); later edits before merge only added numpy errstate guards, default values and docs, not code paths used here (the phase passes scorer, parameters and q explicitly)"
+ },
+ "perf": {
+  "date": "2026-09-29",
+  "code_commit": "d9910c6d16987e70bdf7391bc562e165ea019b7f",
+  "memory_series": "realKnownCause/machine_temperature_system_failure.csv",
+  "rows": {
+   "ewma (default: lam=0.2, ref_window=288, q=0.995)": {
+    "blocks": 9141,
+    "seconds": 0.3339393439819105,
+    "blocks_per_s": 27373.234585066348,
+    "retained_bytes": 12756,
+    "peak_bytes": 64872
+   },
+   "spark (diff, q=0.999; 0.1.0.dev0 default)": {
+    "blocks": 9141,
+    "seconds": 0.22671914799138904,
+    "blocks_per_s": 40318.60599770418,
+    "retained_bytes": 1584,
+    "peak_bytes": 53628
+   },
+   "isoforest (100 trees, q=0.99)": {
+    "blocks": 9141,
+    "seconds": 28.84891963098198,
+    "blocks_per_s": 316.85761952011273,
+    "retained_bytes": 375486,
+    "peak_bytes": 1020505
+   }
+  },
+  "code_commit_note": "run from the working tree on top of this commit (feat/pluggable-scorer, PR #5); later edits before merge only added numpy errstate guards, default values and docs, not code paths used here (the phase passes scorer, parameters and q explicitly)"
+ }
+}

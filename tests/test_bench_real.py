@@ -16,7 +16,9 @@ sys.path.insert(0, str(REAL))
 from streamguard import StreamGuard  # noqa: E402
 
 import download  # noqa: E402
+import gate as G  # noqa: E402
 import make_tables  # noqa: E402
+import pivot  # noqa: E402
 import protocol as P  # noqa: E402
 import run  # noqa: E402
 from data import load_nab, load_smd  # noqa: E402
@@ -98,7 +100,7 @@ def test_streamguard_scores_match_library(fixture_root):
     for mode in ("diff", "median", "detrend"):
         sc = P.score_streamguard(s.x, {}, mode, s.channels)
         ratio, _ = P.ratios(sc, s.channels, 0.999, None)
-        g = StreamGuard(reference=mode)
+        g = StreamGuard(reference=mode, quantile=0.999)
         xb = P.blocks_of(s.x)[:, :, 0]
         ds = [g.process(b) for b in (xb[1:] if mode == "detrend" else xb)]
         if mode == "detrend":
@@ -164,3 +166,78 @@ def test_download_helpers(tmp_path, monkeypatch):
         download.verify({"x.txt": ("u", "0" * 64)}, tmp_path)
     with pytest.raises(FileNotFoundError):
         download.verify({"y.txt": ("u", sha)}, tmp_path)
+
+
+GATE_CASES = [
+    ("ewma", {"lam": 0.2}, "ewma", {"lam": 0.2}),
+    ("iforest", {}, "isoforest", {}),
+    ("streamguard_diff", {"mode": "diff"}, "spark", {"reference": "diff"}),
+    ("streamguard_detrend", {"mode": "detrend"}, "spark", {"reference": "detrend"}),
+]
+
+
+@pytest.mark.parametrize(("fam", "fparams", "scorer", "sparams"), GATE_CASES)
+def test_gate_matches_raw_baselines(fixture_root, fam, fparams, scorer, sparams):
+    """The gate around a scorer reproduces the raw M4 baseline block for block."""
+    for s in load_nab(fixture_root, NAB_KEYS)[:2] + load_smd(fixture_root)[:1]:
+        if scorer != "spark":
+            sparams = {**sparams, "ref_window": P.trailing_len(len(s.x))}
+        raw = P.raw_scores(P.Method("x", fam, fparams), s, {})
+        rr, _ = P.ratios(raw, s.channels, 0.99, None)
+        gr, info = G.gate_series(s, scorer, sparams, 0.99)
+        assert info["not_calibrated_at_64"] == 0
+        np.testing.assert_allclose(gr, rr, rtol=1e-9)
+        assert ((gr >= 1) == (rr >= 1)).all()
+
+
+def test_gate_series_without_channels(fixture_root):
+    s = load_smd(fixture_root)[0]
+    s.channels[:] = False
+    r, info = G.gate_series(s, "ewma", {}, 0.99)
+    assert info == {"channels": 0} and not r.any()
+
+
+def test_fault_injection_helpers(fixture_root, monkeypatch):
+    s = [x for x in load_nab(fixture_root, NAB_KEYS) if x.n_blocks >= P.MIN_BLOCKS][0]
+    rng = np.random.default_rng(0)
+    plan = pivot.fault_plan(s.n_blocks, rng)
+    assert len(plan) == pivot.K_FAULTS and all(b > P.FIRST_EVAL for b, _ in plan)
+    for kind in pivot.FAULTS:
+        xf, fb = pivot.faulted_samples(s.x, kind, plan)
+        if kind in ("nan", "inf"):
+            assert fb == [b for b, _ in plan] and (~np.isfinite(xf)).sum() == len(plan)
+        else:
+            assert len(xf) % 32 == 0 and len(xf) < len(s.x)
+        lab, fam, params, q = pivot.RAW[0]
+        raw = pivot._robust_raw((s, lab, fam, params, q, kind, plan))
+        assert raw["crash"] == 0 and raw["faults"] == len(plan)
+        if kind == "nan":  # NaN propagates through the EWMA state: never flagged again
+            assert raw["fault_flagged"] == 0 and raw["nonfinite_admitted"] > 0
+        for with_seq in (False, True):
+            lab, scorer, params, q = pivot.GATES[0]
+            g = pivot._robust_gate((s, lab, scorer, params, q, kind, plan, with_seq))
+            assert g["crash"] == 0 and g["nonfinite_admitted"] == 0
+            if kind != "drop" or with_seq:
+                assert g["fault_flagged"] == len(plan)
+    for raw_method in pivot.RAW:  # raw baselines: NaN faults are never flagged (or crash)
+        r = pivot._robust_raw((s, *raw_method, "nan", plan))
+        assert r["crash"] == 1 or r["fault_flagged"] == 0
+
+    def boom(series, x, *a):  # a detector that raises on faulted input is counted as a crash
+        if not np.all(np.isfinite(x)):
+            raise ValueError("Input contains NaN")
+        return real(series, x, *a)
+
+    real = pivot.raw_flags
+    monkeypatch.setattr(pivot, "raw_flags", boom)
+    r = pivot._robust_raw((s, *pivot.RAW[3], "nan", plan))
+    assert r == {"crash": 1, "error": "ValueError: Input contains NaN"}
+
+
+def test_pivot_tables_render_committed_results():
+    report = json.loads((REAL / "pivot_results.json").read_text())
+    md = pivot.render(report)
+    for head in ("Default-scorer rule", "gate vs raw", "Fault injection", "Throughput"):
+        assert head in md
+    assert "**(chosen)**" in md and "SEQUENCE_GAP 48" in md
+    assert pivot.render({}) == "# Post-M4 pivot results (REPORTED)\n"

@@ -109,8 +109,15 @@ def significance(test_rows: dict, key_a, key_b, metric: str) -> dict:
     }
 
 
-def streaming_throughput(series: list[P.Series], max_blocks: int = 200_000) -> dict:
+# The M4 run measured the 0.1.0.dev0 default gate; pinned so results.json stays reproducible.
+M4_GUARD = {"scorer": "spark", "reference": "diff", "quantile": 0.999}
+
+
+def streaming_throughput(
+    series: list[P.Series], max_blocks: int = 200_000, guard: dict | None = None
+) -> dict:
     """StreamGuard.process() on real blocks, one stream per channel, single thread."""
+    guard = M4_GUARD if guard is None else guard
     blocks = []
     for s in series:
         xb = P.blocks_of(s.x)
@@ -121,7 +128,7 @@ def streaming_throughput(series: list[P.Series], max_blocks: int = 200_000) -> d
     n = 0
     t0 = time.perf_counter()
     for arr in blocks:
-        g = StreamGuard()
+        g = StreamGuard(**guard)
         for blk in arr:
             g.process(blk)
         n += len(arr)
@@ -129,13 +136,14 @@ def streaming_throughput(series: list[P.Series], max_blocks: int = 200_000) -> d
     return {"blocks": n, "seconds": el, "blocks_per_s": n / el}
 
 
-def memory_profile(s: P.Series, methods: list[P.Method]) -> dict:
+def memory_profile(s: P.Series, methods: list[P.Method], guard: dict | None = None) -> dict:
     """Peak traced allocation while scoring one series; StreamGuard retained per-stream state."""
+    guard = M4_GUARD if guard is None else guard
     out = {}
     x1 = P.blocks_of(s.x)[:, :, 0]
     tracemalloc.start()
     base = tracemalloc.get_traced_memory()[0]
-    g = StreamGuard()
+    g = StreamGuard(**guard)
     for blk in x1:
         g.process(blk)
     cur, peak = tracemalloc.get_traced_memory()

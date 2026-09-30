@@ -31,6 +31,7 @@ class Reason(str, Enum):
     NOT_CALIBRATED = "NOT_CALIBRATED"  # warm-up in progress, no tau yet
     CALIBRATION_FAILED = "CALIBRATION_FAILED"  # warm-up could not support a tau (e.g. constant)
     BAD_TAU = "BAD_TAU"  # tau is not a finite non-negative number
+    SEQUENCE_GAP = "SEQUENCE_GAP"  # seq given and not previous seq + 1 (dropped/reordered)
 
     def __str__(self) -> str:
         return self.value

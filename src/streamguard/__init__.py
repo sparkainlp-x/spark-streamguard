@@ -1,7 +1,8 @@
-"""Spark StreamGuard: a streaming, fail-closed guardrail for numeric data in 32-value blocks.
+"""Spark StreamGuard: a fail-closed, auditable gate for any streaming detector.
 
-Research prototype (milestone 1). No benchmarks have been run yet; every performance figure
-in this project is TARGET or UNRUN.
+Blocks of 32 values are validated, scored by a pluggable scorer (``ewma`` by default, ``spark``,
+optional ``isoforest``, or your own), admitted or latched with a reason code, and logged.
+Research prototype; see the README for SYNTHETIC and REPORTED evidence.
 """
 
 from streamguard.calibrate import (
@@ -24,7 +25,16 @@ from streamguard.score import (
     residual,
     score_components,
 )
+from streamguard.scorers import (
+    SCORERS,
+    EwmaScorer,
+    IsoForestScorer,
+    Scorer,
+    SparkScorer,
+    make_scorer,
+)
 from streamguard.stream import (
+    DEFAULT_SCORER,
     STREAM_QUANTILE,
     STREAM_WARMUP_BLOCKS,
     AuditLogWriter,
@@ -37,7 +47,9 @@ __version__ = "0.1.0.dev0"
 __all__ = [
     "BLOCK",
     "DEFAULT_QUANTILE",
+    "DEFAULT_SCORER",
     "DEFAULT_TAU",
+    "SCORERS",
     "W_MEAN_ABS",
     "W_PEAK",
     "W_RMS",
@@ -48,7 +60,11 @@ __all__ = [
     "CalibrationError",
     "Decision",
     "DriftConfig",
+    "EwmaScorer",
+    "IsoForestScorer",
     "Reason",
+    "Scorer",
+    "SparkScorer",
     "StreamGuard",
     "TauCalibration",
     "__version__",
@@ -58,6 +74,7 @@ __all__ = [
     "decide",
     "drift_update",
     "latch_bit",
+    "make_scorer",
     "residual",
     "score_components",
 ]

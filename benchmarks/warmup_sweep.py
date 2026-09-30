@@ -101,7 +101,7 @@ def corpus(split: int) -> list[dict]:
 def evaluate(data: list[dict], **cfg) -> dict:
     tot = {"spikes": 0, "caught": 0, "negatives": 0, "false": 0, "steps": 0, "step_caught": 0}
     for s in data:
-        g = StreamGuard(**cfg)
+        g = StreamGuard(scorer="spark", **cfg)  # 0.1.0.dev0 scorer (sweep predates M4)
         latched = set()
         for b in range(N_BLOCKS):
             d = g.process(s["x"][b])

@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.0 (unreleased; date set when tagged)
+
+First public release candidate. It bundles the development milestones listed below.
+
+- Version set to 0.1.0 in `pyproject.toml`, `streamguard.__version__`, CITATION.cff and
+  .zenodo.json.
+- scikit-learn stays optional: the core installs with numpy only; isoforest tests carry a
+  `sklearn` marker and are skipped cleanly when it is missing, and `IsoForestScorer` checks its
+  options before importing scikit-learn. New test for the clear ImportError message.
+- Tests treat warnings as errors (`filterwarnings = ["error"]`); CI runs on every branch, on
+  Python 3.10-3.13 with all extras, plus a core-only job without scikit-learn.
+- Wording: input checks are described as "checked"; SYNTHETIC caveats now say they say nothing
+  about performance on real data.
+- Copyright line names Jean-François Brisson, Spark AI NLP (licence stays MIT). CITATION.cff and
+  .zenodo.json carry the full affiliation; .zenodo.json `references` oes512q-latch and the NAB
+  and SMD dataset papers.
+- README: install options, Limitations, How to cite (DOI placeholder), License.
+
 ## Unreleased: post-M4 pivot, a fail-closed gate for any scorer
 
 Positioning changed after M4 lost: the value is the fail-closed, audited gate, not the score.

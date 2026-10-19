@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 (unreleased; date set when tagged)
+## 0.1.0 (2026-10-18)
 
 First public release candidate. It bundles the development milestones listed below.
 

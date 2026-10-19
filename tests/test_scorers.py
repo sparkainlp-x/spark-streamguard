@@ -4,6 +4,7 @@ import gc
 import io
 import json
 import math
+import sys
 import tracemalloc
 
 import numpy as np
@@ -79,7 +80,7 @@ def test_quantile_tau_rejects_nonfinite():
         quantile_tau(np.array([np.inf, np.inf]), 0.5)
 
 
-def test_scorer_options_are_validated():
+def test_scorer_options_are_checked():
     for bad in (True, 31, 64.0):
         with pytest.raises(ValueError, match="ref_window"):
             EwmaScorer(ref_window=bad)
@@ -198,6 +199,7 @@ def test_ewma_calibration_failures(rng, monkeypatch):
 # ------------------------------------------------------------------------------ isoforest
 
 
+@pytest.mark.sklearn
 def test_isoforest_gate_matches_sklearn(rng):
     from sklearn.ensemble import IsolationForest
 
@@ -222,6 +224,7 @@ def test_isoforest_gate_matches_sklearn(rng):
     assert g.scorer._wu is None
 
 
+@pytest.mark.sklearn
 def test_isoforest_needs_warmup_and_rejects_bad_input(rng):
     with pytest.raises(ValueError, match="warm-up"):
         StreamGuard(tau=1.0, scorer="isoforest")
@@ -233,6 +236,17 @@ def test_isoforest_needs_warmup_and_rejects_bad_input(rng):
     assert ds[3].score is not None
     g2 = StreamGuard(scorer="isoforest", warmup_blocks=4)
     assert run(g2, [np.ones(32)] * 5)[-1].reason is Reason.CALIBRATION_FAILED
+
+
+def test_isoforest_without_sklearn_raises_a_clear_error(monkeypatch):
+    # Hide scikit-learn (installed or not): the core stays usable, isoforest fails clearly.
+    monkeypatch.setitem(sys.modules, "sklearn", None)
+    monkeypatch.setitem(sys.modules, "sklearn.ensemble", None)
+    with pytest.raises(ImportError, match=r"spark-streamguard\[isoforest\]"):
+        IsoForestScorer()
+    with pytest.raises(ImportError, match="scikit-learn"):
+        StreamGuard(scorer="isoforest", warmup_blocks=8)
+    assert StreamGuard(warmup_blocks=8).config()["scorer"] == "ewma"
 
 
 # ------------------------------------------------------------------------------ custom scorer
@@ -306,6 +320,7 @@ def test_sequence_gap_latches_and_resets(rng):
         g.process(data[5], seq=True)
 
 
+@pytest.mark.sklearn
 def test_isoforest_overflow_and_spark_calibration_failure(rng):
     g = StreamGuard(scorer="isoforest", scorer_params={"n_estimators": 5}, warmup_blocks=8)
     run(g, blocks(rng, 9, sd=0.01))

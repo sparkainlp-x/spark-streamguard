@@ -1,7 +1,25 @@
+import importlib.util
+
 import numpy as np
 import pytest
 
 SEED = 42
+HAS_SKLEARN = importlib.util.find_spec("sklearn") is not None
+
+
+def pytest_configure(config):
+    config.addinivalue_line(
+        "markers", "sklearn: needs the optional scikit-learn extra (skipped when it is missing)"
+    )
+
+
+def pytest_collection_modifyitems(config, items):
+    if HAS_SKLEARN:
+        return
+    skip = pytest.mark.skip(reason="optional scikit-learn is not installed")
+    for item in items:
+        if "sklearn" in item.keywords:
+            item.add_marker(skip)
 
 
 @pytest.fixture

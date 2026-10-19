@@ -195,10 +195,15 @@ def test_scorer_flags():
     code, recs, _ = call(["--scorer", "ewma", "--ewma-lambda", "0.3", "--ref-window", "64"], x)
     assert code == 0 and recs[0]["scorer"] == "ewma"
     assert recs[0]["scorer_params"] == {"lam": 0.3, "ref_window": 64}
-    code, recs, _ = call(["--scorer", "isoforest", "--trees", "10", "--warmup", "8"], x)
-    assert code == 0 and recs[0]["scorer_params"]["n_estimators"] == 10
-    assert any(r.get("event") == "CALIBRATED" for r in recs)
     code, recs, err = call(["--scorer", "ewma", "--reference", "diff"], x)
     assert code == 2 and "only apply" in err
     code, recs, _ = call([], x)
     assert recs[0]["scorer"] == "ewma" and recs[0]["quantile"] == 0.995
+
+
+@pytest.mark.sklearn
+def test_scorer_flags_isoforest():
+    x = "\n".join(map(str, series(30, spikes=[25 * 32 + 9])))
+    code, recs, _ = call(["--scorer", "isoforest", "--trees", "10", "--warmup", "8"], x)
+    assert code == 0 and recs[0]["scorer_params"]["n_estimators"] == 10
+    assert any(r.get("event") == "CALIBRATED" for r in recs)

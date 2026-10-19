@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spark-streamguard"
-version = "0.1.0.dev0"
+version = "0.1.0"
 description = "A fail-closed, auditable gate for any streaming detector: pluggable block scorers (EWMA chart default), admit/latch with reason codes, self-calibrated threshold, sequence-gap check, JSONL audit log. Research prototype."
 readme = "README.md"
 requires-python = ">=3.10"

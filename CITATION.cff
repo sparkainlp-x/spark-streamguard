@@ -9,7 +9,7 @@ authors:
     orcid: "https://orcid.org/0009-0000-9778-5374"
 repository-code: "https://github.com/sparkainlp-x/spark-streamguard"
 license: MIT
-version: "0.1.0.dev0"
+version: "0.1.0"
 abstract: >-
   Python research prototype (numpy only). A fail-closed, auditable gate for any
   streaming detector: each 32-value block is validated (NaN, inf, wrong shape,

@@ -1,6 +1,7 @@
 {
   "upload_type": "software",
   "title": "Spark StreamGuard: a fail-closed, auditable gate for any streaming detector",
+  "version": "0.1.0",
   "description": "<p>Python research prototype (numpy only). A fail-closed, auditable gate for any streaming detector. Each 32-value block is validated (NaN, inf, wrong shape, non-numeric and, with sequence numbers, missing blocks always latch with a reason code), scored by a pluggable scorer (EWMA control chart by default; the original weighted residual score S = 0.45·Peak + 0.35·RMS + 0.20·MeanAbs and an optional IsolationForest adapter are built in) and latched when S ≥ τ. τ is self-calibrated from a warm-up window with an optional bounded drift rule. Constant memory per stream and a JSONL audit log of every decision.</p><p><strong>Evidence tags.</strong> Demo outputs and unit tests: <strong>SYNTHETIC</strong>. Real-data benchmark on NAB and SMD: <strong>REPORTED</strong>; the original score does not beat an EWMA control chart on NAB and ties with the baselines on SMD. Wrapping a detector in the gate leaves its test decisions unchanged; under fault injection the gate latches every NaN, inf and short block with a reason code. Spec targets remain <strong>TARGET</strong>.</p><p><strong>Scope and limits.</strong> Research prototype. Not a certified safety system and not a product. No quantum claims.</p>",
   "creators": [
     {

@@ -771,8 +771,8 @@ Research prototype, not a certified safety system and not a product. No quantum 
 
 ## How to cite
 
-See [CITATION.cff](CITATION.cff). A Zenodo DOI will be listed here after the first release:
-`10.5281/zenodo.XXXXXXX` (placeholder).
+See [CITATION.cff](CITATION.cff). Cite the concept DOI [10.5281/zenodo.23462518](https://doi.org/10.5281/zenodo.23462518) for all versions,
+or the version DOI [10.5281/zenodo.23462519](https://doi.org/10.5281/zenodo.23462519) for v0.1.0.
 
 > Brisson, J.-F. (2026). *Spark StreamGuard: a fail-closed, auditable gate for any streaming
 > detector* (Version 0.1.0) [Computer software]. Spark AI NLP, Fredericton, New Brunswick,

@@ -7,7 +7,7 @@ detection, constant memory per stream and a JSONL audit log of every decision. E
 either **admitted** or **latched** (blocked) with a reason code; anything it cannot score
 (NaN, inf, wrong length, non-numeric, overflow, not yet calibrated, missing block) latches.
 
-Status: research prototype (`0.1.0.dev0`). Runtime dependency: numpy only (the optional
+Status: research prototype (`0.1.0`). Runtime dependency: numpy only (the optional
 `isoforest` scorer needs scikit-learn). Python 3.10 to 3.13.
 
 > **The M4 real-data benchmark was lost, and this is why the project changed focus.** The
@@ -30,8 +30,12 @@ parity test checks the calibrated tau and scale against values produced by that 
 ## Quick start
 
 ```bash
-pip install -e ".[dev]"      # from a clone of this repository
-python -m pytest --cov        # run the tests
+git clone https://github.com/sparkainlp-x/spark-streamguard
+cd spark-streamguard
+pip install .                  # core: numpy only
+pip install ".[isoforest]"     # optional IsolationForest scorer (scikit-learn)
+pip install -e ".[dev]"        # development: pytest, coverage, ruff
+python -m pytest --cov         # tests; scikit-learn tests are skipped when it is not installed
 ```
 
 Library:
@@ -740,11 +744,18 @@ Spec TARGETs against measurements:
   NAB test split: 2.3% for the M4 default, 3.1% for the new `ewma` default (72 of 2,344
   negative evaluation blocks); on SMD 43.8% for the new default.
 
-## Scope and limits
+## Limitations
 
-Research prototype. Not a certified safety system, not a diagnostic device and not a product.
-No quantum claims. Parity rebuild (M2), streaming CLI extensions (M3) and the LLM adapter (M5)
-are not done yet.
+Research prototype, not a certified safety system and not a product. No quantum claims.
+
+* The original `spark` score loses to a plain EWMA chart on NAB and ties at a poor level on SMD
+  (REPORTED above). The gate does not make any scorer more accurate on clean data.
+* The 1% false-latch TARGET is not met (see Evidence tags), and the long warm-up admits nothing
+  for the first 65 valid blocks; see [Remaining weaknesses](#remaining-weaknesses-synthetic-evidence).
+* Thresholds are self-calibrated on a warm-up that is assumed clean; contaminated warm-ups are
+  UNRUN.
+* Parity rebuild (M2), streaming CLI extensions (M3) and the LLM adapter (M5) are not done yet
+  (UNRUN).
 
 ## Roadmap
 
@@ -755,8 +766,24 @@ are not done yet.
   SMD (done, REPORTED above; Yahoo S5 not included for licence reasons).
 * Post-M4 pivot: pluggable scorers (`spark`, `ewma`, `isoforest`, custom), default re-chosen on
   tuning splits, gate-vs-raw check and fault-injection benchmark (done, REPORTED above).
-* M5: LLM output adapter, v0.1.0 release and Zenodo DOI.
+* v0.1.0 release and Zenodo DOI (prepared).
+* M5: LLM output adapter.
 
-## Citation and license
+## How to cite
 
-See [CITATION.cff](CITATION.cff). MIT License, copyright Spark AI NLP.
+See [CITATION.cff](CITATION.cff). A Zenodo DOI will be listed here after the first release:
+`10.5281/zenodo.XXXXXXX` (placeholder).
+
+> Brisson, J.-F. (2026). *Spark StreamGuard: a fail-closed, auditable gate for any streaming
+> detector* (Version 0.1.0) [Computer software]. Spark AI NLP, Fredericton, New Brunswick,
+> Canada. https://github.com/sparkainlp-x/spark-streamguard
+
+If you use the real-data benchmark, please also cite the datasets: NAB (Ahmad et al., 2017,
+[doi:10.1016/j.neucom.2017.04.070](https://doi.org/10.1016/j.neucom.2017.04.070)) and SMD
+(Su et al., 2019, [doi:10.1145/3292500.3330672](https://doi.org/10.1145/3292500.3330672)).
+
+## License
+
+Copyright (c) 2026 Jean-François Brisson, Spark AI NLP.
+
+Released under the MIT License; see [LICENSE](LICENSE).

@@ -12,7 +12,7 @@ license: MIT
 version: "0.1.0"
 abstract: >-
   Python research prototype (numpy only). A fail-closed, auditable gate for any
-  streaming detector: each 32-value block is validated (NaN, inf, wrong shape,
+  streaming detector: each 32-value block is checked (NaN, inf, wrong shape,
   non-numeric and, with sequence numbers, missing blocks always latch with a
   reason code), scored by a pluggable scorer (EWMA control chart by default; the
   original weighted residual score S = 0.45·Peak + 0.35·RMS + 0.20·MeanAbs and an

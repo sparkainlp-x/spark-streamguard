@@ -1,6 +1,6 @@
 """Spark StreamGuard: a fail-closed, auditable gate for any streaming detector.
 
-Blocks of 32 values are validated, scored by a pluggable scorer (``ewma`` by default, ``spark``,
+Blocks of 32 values are checked, scored by a pluggable scorer (``ewma`` by default, ``spark``,
 optional ``isoforest``, or your own), admitted or latched with a reason code, and logged.
 Research prototype; see the README for SYNTHETIC and REPORTED evidence.
 """

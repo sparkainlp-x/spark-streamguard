@@ -6,7 +6,7 @@
   "creators": [
     {
       "name": "Brisson, Jean-François",
-      "affiliation": "Spark AI NLP",
+      "affiliation": "Spark AI NLP, Fredericton, New Brunswick, Canada",
       "orcid": "0009-0000-9778-5374"
     }
   ],
@@ -26,12 +26,26 @@
     {
       "identifier": "https://github.com/sparkainlp-x/spark-streamguard",
       "relation": "isSupplementTo",
-      "resource_type": "software"
+      "resource_type": "software",
+      "scheme": "url"
     },
     {
       "identifier": "10.5281/zenodo.22998570",
-      "relation": "isDerivedFrom",
-      "resource_type": "software"
+      "relation": "references",
+      "resource_type": "software",
+      "scheme": "doi"
+    },
+    {
+      "identifier": "10.1016/j.neucom.2017.04.070",
+      "relation": "references",
+      "resource_type": "publication-article",
+      "scheme": "doi"
+    },
+    {
+      "identifier": "10.1145/3292500.3330672",
+      "relation": "references",
+      "resource_type": "publication-conferencepaper",
+      "scheme": "doi"
     }
   ],
   "language": "eng",

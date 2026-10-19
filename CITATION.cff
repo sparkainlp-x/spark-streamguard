@@ -1,15 +1,16 @@
 cff-version: 1.2.0
-message: "If you use this software, please cite it as below. Demo outputs are SYNTHETIC; real-data results on NAB and SMD are REPORTED in the README (StreamGuard does not beat the standard baselines there)."
+message: "If you use this software, please cite it as below (a Zenodo DOI is added at the first release). Demo outputs are SYNTHETIC; real-data results on NAB and SMD are REPORTED in the README (StreamGuard does not beat the standard baselines there)."
 title: "Spark StreamGuard: a fail-closed, auditable gate for any streaming detector"
 type: software
 authors:
   - family-names: "Brisson"
     given-names: "Jean-François"
-    affiliation: "Spark AI NLP"
+    affiliation: "Spark AI NLP, Fredericton, New Brunswick, Canada"
     orcid: "https://orcid.org/0009-0000-9778-5374"
 repository-code: "https://github.com/sparkainlp-x/spark-streamguard"
 license: MIT
 version: "0.1.0"
+date-released: "2026-10-18"
 abstract: >-
   Python research prototype (numpy only). A fail-closed, auditable gate for any
   streaming detector: each 32-value block is checked (NaN, inf, wrong shape,

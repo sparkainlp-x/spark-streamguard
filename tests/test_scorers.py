@@ -144,21 +144,38 @@ def test_ewma_fixed_mode_and_invalid_blocks(rng):
 
 
 def test_ewma_ring_buffer_wraps_and_memory_is_constant(rng):
-    g = StreamGuard(scorer="ewma", scorer_params={"ref_window": 40}, warmup_blocks=8)
-    data = blocks(rng, 6000)
-    run(g, data[:200])
-    assert g.calibrated and g.scorer._count == 40
+    window = 40
+    g = StreamGuard(scorer="ewma", scorer_params={"ref_window": window}, warmup_blocks=8)
+    run(g, blocks(rng, 200))
+    assert g.calibrated and g.scorer._count == window
+    buf = g.scorer._buf
+
+    # Structural check: the reference window is a fixed ring buffer that is reused, never regrown.
+    run(g, blocks(rng, 500))
+    assert g.scorer._buf is buf and buf.shape == (window,) and g.scorer._count == window
+
+    # Allocation check. One untimed warm-up segment lets numpy and the allocator settle, then the
+    # traced size is sampled after each of five 1,000-block segments. A per-block leak of even
+    # 4 bytes would add 4 KB to *every* segment, so the median segment growth must stay under that,
+    # while a one-off allocator cache (up to ~24 KB seen in CI) moves at most one segment.
+    segment, n_segments, per_block_leak = 1000, 5, 4
+    data = blocks(rng, segment * (n_segments + 1))
     tracemalloc.start()
-    run(g, data[200:3000])
-    gc.collect()
-    mid, _ = tracemalloc.get_traced_memory()
-    run(g, data[3000:])
-    gc.collect()
-    end, _ = tracemalloc.get_traced_memory()
-    tracemalloc.stop()
-    # 3,000 more blocks: any per-block growth of >= 6 bytes would exceed this. The slack covers
-    # allocator caches of freed numpy temporaries (7.6 KB seen once on CPython 3.11 in CI).
-    assert end - mid < 16384
+    try:
+        for b in data[:segment]:
+            g.process(b)
+        gc.collect()
+        samples = [tracemalloc.get_traced_memory()[0]]
+        for k in range(1, n_segments + 1):
+            for b in data[k * segment : (k + 1) * segment]:
+                g.process(b)
+            gc.collect()
+            samples.append(tracemalloc.get_traced_memory()[0])
+    finally:
+        tracemalloc.stop()
+    growth = sorted(after - before for before, after in zip(samples[:-1], samples[1:], strict=True))
+    assert growth[n_segments // 2] < segment * per_block_leak, growth
+    assert g.scorer._buf is buf and g.scorer._count == window
 
 
 def test_ewma_overflow_is_fail_closed():

@@ -215,7 +215,7 @@ time; the warm-up and quantile are tuned separately below), no drift. Blocks fro
 18 on are scored. A false latch is any `SCORE_OVER_TAU` on a block without an injected spike,
 except the step block, which is reported separately. Parameters were fixed before the run and
 not tuned per mode. All numbers below are **SYNTHETIC** (generated data, measured on this code)
-and say nothing about real-world performance.
+and say nothing about how it performs on real data.
 
 Demo series:
 

@@ -1,7 +1,7 @@
 """SYNTHETIC evaluation of the reference modes (``python benchmarks/synthetic_reference_eval.py``).
 
 Everything here is generated data (seeds derived from 42). Results are SYNTHETIC and say
-nothing about real-world performance.
+nothing about how it performs on real data.
 
 Corpus: the README demo series (unchanged) plus 24 series, 6 per family:
 

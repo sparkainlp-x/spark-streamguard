@@ -7,7 +7,7 @@ Usage::
     python benchmarks/warmup_sweep.py           # both
 
 All data are generated here (seeds derived from 42). Results are SYNTHETIC and say nothing
-about real-world performance.
+about how it performs on real data.
 
 Fair corpus design (fixes the earlier 32-block check, where a longer warm-up left fewer spikes
 to score): every series has 166 blocks of 32 samples. Block 0 seeds the reference and blocks

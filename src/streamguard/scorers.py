@@ -326,15 +326,15 @@ class IsoForestScorer(_TrailingMedianScorer):
 
     def __init__(self, n_estimators: int = 100, seed: int = 42, ref_window: int = 288) -> None:
         super().__init__(ref_window)
+        if isinstance(n_estimators, bool) or not isinstance(n_estimators, int) or n_estimators < 1:
+            raise ValueError("n_estimators must be an int >= 1")
         try:
             import sklearn.ensemble  # noqa: F401
-        except ImportError as exc:  # pragma: no cover - depends on the environment
+        except ImportError as exc:
             raise ImportError(
                 "the isoforest scorer needs scikit-learn: "
                 "pip install 'spark-streamguard[isoforest]'"
             ) from exc
-        if isinstance(n_estimators, bool) or not isinstance(n_estimators, int) or n_estimators < 1:
-            raise ValueError("n_estimators must be an int >= 1")
         self.n_estimators = n_estimators
         self.seed = int(seed)
         self._model = None
